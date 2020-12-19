@@ -2,11 +2,11 @@ import * as CommonSelectors from '../lib/common_selectors';
 import doubleClickZoom from '../lib/double_click_zoom';
 import * as Constants from '../constants';
 import isEventAtCoordinates from '../lib/is_event_at_coordinates';
-import isSelectable from '../locationbar/is_selectable';
+import isSelectable from '../lib/is_selectable';
 import createVertex from '../lib/create_vertex';
 
 const DrawPolygon = {};
-const { cursors } = Constants
+const { cursors } = Constants;
 
 DrawPolygon.onSetup = function(opts) {
   if (this._ctx.snapping) {
@@ -160,9 +160,7 @@ DrawPolygon.onStop = function(state) {
 
 DrawPolygon.toDisplayFeatures = function(state, geojson, display) {
   const isActivePolygon = geojson.properties.id === state.polygon.id;
-  geojson.properties.active = isActivePolygon
-    ? Constants.activeStates.ACTIVE
-    : Constants.activeStates.INACTIVE;
+  geojson.properties.active = isActivePolygon ? Constants.activeStates.ACTIVE : Constants.activeStates.INACTIVE;
   if (!isActivePolygon) return display(geojson);
 
   // Don't render a polygon until it has two positions

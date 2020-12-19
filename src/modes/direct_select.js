@@ -3,7 +3,6 @@ import createSupplementaryPoints from '../lib/create_supplementary_points';
 import constrainFeatureMovement from '../lib/constrain_feature_movement';
 import doubleClickZoom from '../lib/double_click_zoom';
 import * as Constants from '../constants';
-import CommonSelectors from '../lib/CommonSelectors'
 import moveFeatures from '../lib/move_features';
 
 const isVertex = isOfMetaType(Constants.meta.VERTEX);
@@ -82,9 +81,7 @@ DirectSelect.dragFeature = function (state, e, delta) {
 };
 
 DirectSelect.dragVertex = function (state, e, delta) {
-  const selectedCoords = state.selectedCoordPaths.map(coord_path =>
-    state.feature.getCoordinate(coord_path)
-  );
+  const selectedCoords = state.selectedCoordPaths.map(coord_path => state.feature.getCoordinate(coord_path));
   const selectedCoordPoints = selectedCoords.map(coords => ({
     type: Constants.geojsonTypes.FEATURE,
     properties: {},
@@ -145,7 +142,7 @@ DirectSelect.onSetup = function (opts) {
     selectedCoordPaths: opts.coordPath ? [opts.coordPath] : []
   };
 
-  this._ctx.setGetCursorTypeLogic(({ snapped, overFeatures }) => {
+  this._ctx.setGetCursorTypeLogic(({ overFeatures }) => {
     if (!overFeatures || overFeatures.filter(l => l.layer.id.includes('vertex') || l.layer.id.includes('midpoint')).length) {
       return cursors.GRAB;
     }

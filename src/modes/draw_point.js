@@ -1,4 +1,4 @@
-import isSelectable from '../locationbar/is_selectable';
+import isSelectable from '../lib/is_selectable';
 import * as CommonSelectors from '../lib/common_selectors';
 import * as Constants from '../constants';
 

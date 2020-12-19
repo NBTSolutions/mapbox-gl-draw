@@ -58,6 +58,11 @@ export const modes = {
   MARQUEE: "marquee",
 };
 
+export const groupSelectModes = {
+  FREEHAND: "freehand",
+  MARQUEE: "marquee",
+};
+
 export const events = {
   CREATE: 'draw.create',
   CREATING: "draw.creating",
