@@ -1,11 +1,12 @@
-const events = require("./events");
-const Store = require("./store");
-const ui = require("./ui");
-const Constants = require("./constants");
-const xtend = require("xtend");
-const Snapping = require("./snapping/index");
+import events from './events';
+import Store from './store';
+import ui from './ui';
+import * as Constants from './constants';
+import xtend from 'xtend';
+import Snapping from './snapping'
 
-module.exports = function (ctx) {
+export default function(ctx) {
+
   let controlContainer = null;
   let mapLoadedInterval = null;
   const setup = {
@@ -132,4 +133,4 @@ module.exports = function (ctx) {
   ctx.setup = setup;
 
   return setup;
-};
+}

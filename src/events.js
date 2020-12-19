@@ -1,14 +1,14 @@
-const throttle = require("lodash.throttle");
+import throttle from "lodash.throttle";
 
-const setupModeHandler = require("./lib/mode_handler");
-const CursorManager = require("./lib/cursor");
-const featuresAt = require("./lib/features_at");
-const isClick = require("./lib/is_click");
-const isTap = require("./lib/is_tap");
-const Constants = require("./constants");
-const objectToMode = require("./modes/object_to_mode");
+import setupModeHandler from "./lib/mode_handler";
+import CursorManager from "./lib/cursor";
+import featuresAt from "./lib/features_at";
+import isClick from "./lib/is_click";
+import isTap from "./lib/is_tap";
+import * as Constants from "./constants";
+import objectToMode from "./modes/object_to_mode";
 
-module.exports = function (ctx) {
+export default function (ctx) {
   const modes = Object.keys(ctx.options.modes).reduce((m, k) => {
     m[k] = objectToMode(ctx.options.modes[k]);
     return m;
@@ -20,7 +20,7 @@ module.exports = function (ctx) {
   let currentModeName = null;
   let currentMode = null;
 
-  function isStaticMode () {
+  function isStaticMode() {
     return ctx.api.getMode() === Constants.modes.STATIC;
   }
 
@@ -42,24 +42,25 @@ module.exports = function (ctx) {
 
   events.mousedrag = function (event) {
     if (isStaticMode()) return;
-    events.drag(event, endInfo => !isClick(mouseDownInfo, endInfo));
+    events.drag(event, (endInfo) => !isClick(mouseDownInfo, endInfo));
   };
 
   events.touchdrag = function (event) {
     if (isStaticMode()) return;
-    events.drag(event, endInfo => !isTap(touchStartInfo, endInfo));
+    events.drag(event, (endInfo) => !isTap(touchStartInfo, endInfo));
   };
 
   events.mousemove = function (event) {
     if (isStaticMode()) return;
 
     const button =
-      event.originalEvent.buttons !== undefined ? event.originalEvent.buttons : event.originalEvent.which;
+      event.originalEvent.buttons !== undefined
+        ? event.originalEvent.buttons
+        : event.originalEvent.which;
 
     if (button === 1) {
       return events.mousedrag(event);
     }
-
 
     const target = CM.setCursor(event, "mousemove");
     event.featureTarget = target;
@@ -324,4 +325,4 @@ module.exports = function (ctx) {
   };
 
   return api;
-};
+}

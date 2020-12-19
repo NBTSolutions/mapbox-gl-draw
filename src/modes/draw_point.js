@@ -1,9 +1,9 @@
-const CommonSelectors = require("../lib/common_selectors");
-const isSelectable = require("../lib/is_selectable");
-const Constants = require("../constants");
-const cursors = Constants.cursors;
+import isSelectable from '../locationbar/is_selectable';
+import * as CommonSelectors from '../lib/common_selectors';
+import * as Constants from '../constants';
 
 const DrawPoint = {};
+const { cursors } = Constants
 
 DrawPoint.onSetup = function(opts = {}) {
   if (this._ctx.snapping) {
@@ -108,4 +108,4 @@ DrawPoint.onKeyUp = function(state, e) {
   }
 };
 
-module.exports = DrawPoint;
+export default DrawPoint;

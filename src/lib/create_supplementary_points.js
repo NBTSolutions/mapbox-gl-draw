@@ -1,7 +1,7 @@
-const createVertex = require("./create_vertex");
-const createMidpoint = require("./create_midpoint");
-const createLine = require("./create_line");
-const Constants = require("../constants");
+import createVertex from './create_vertex';
+import createMidpoint from './create_midpoint';
+import createLine from './create_line';
+import * as Constants from '../constants';
 
 function createSupplementaryPoints(geojson, options = {}, basePath = null) {
   const { type, coordinates } = geojson.geometry;
@@ -117,4 +117,4 @@ function createSupplementaryPoints(geojson, options = {}, basePath = null) {
   return supplementaryPoints;
 }
 
-module.exports = createSupplementaryPoints;
+export default createSupplementaryPoints;

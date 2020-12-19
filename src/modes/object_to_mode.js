@@ -1,5 +1,6 @@
-const ModeInterface = require("./mode_interface");
-const _throttle = require("lodash.throttle");
+import ModeInterface from './mode_interface';
+import _throttle from 'lodash.throttle';
+
 const eventMapper = {
   drag: "onDrag",
   click: "onClick",
@@ -17,7 +18,7 @@ const eventMapper = {
 
 const eventKeys = Object.keys(eventMapper);
 
-module.exports = function(modeObject) {
+export default function(modeObject) {
   const modeObjectKeys = Object.keys(modeObject);
 
   return function(ctx, startOpts = {}) {
@@ -67,4 +68,4 @@ module.exports = function(modeObject) {
       }
     };
   };
-};
+}

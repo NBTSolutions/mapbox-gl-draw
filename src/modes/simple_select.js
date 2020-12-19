@@ -1,13 +1,13 @@
-const CommonSelectors = require("../lib/common_selectors");
-const mouseEventPoint = require("../lib/mouse_event_point");
-const createSupplementaryPoints = require("../lib/create_supplementary_points");
-const StringSet = require("../lib/string_set");
-const doubleClickZoom = require("../lib/double_click_zoom");
-const moveFeatures = require("../lib/move_features");
-const Constants = require("../constants");
-const cursors = Constants.cursors;
+import * as CommonSelectors from '../lib/common_selectors';
+import mouseEventPoint from '../lib/mouse_event_point';
+import createSupplementaryPoints from '../lib/create_supplementary_points';
+import StringSet from '../lib/string_set';
+import doubleClickZoom from '../lib/double_click_zoom';
+import moveFeatures from '../lib/move_features';
+import * as Constants from '../constants';
 
 const SimpleSelect = {};
+const { cursors } = Constants
 
 SimpleSelect.onSetup = function (opts) {
   // this._ctx.setGetCursorTypeLogic(() => "crosshair");
@@ -435,4 +435,4 @@ SimpleSelect.onUncombineFeatures = function () {
   this.fireActionable();
 };
 
-module.exports = SimpleSelect;
+export default SimpleSelect;
