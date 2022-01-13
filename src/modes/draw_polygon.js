@@ -87,7 +87,7 @@ DrawPolygon.clickAnywhere = function(state, e) {
   );
 
   this.map.fire(Constants.events.VERTEX_PLACED, { features: [state.polygon.toGeoJSON()] });
-  
+
   if (state.polygon.isCreatingValid()) {
     this.map.fire(Constants.events.CREATING, { features: [state.polygon.toGeoJSON(true)] });
   }

@@ -189,7 +189,7 @@ SimpleSelect.clickOnFeature = function (state, e) {
   const feature = this.getFeature(featureId);
   // This prevents a polygon drawn in freehand or marquee mode from being resized/moved.
   // always have to check for the selectable property existence cause it could be added from the api
-  if (feature.properties && feature.properties.hasOwnProperty('selectable') && !feature.properties.selectable) {
+  if (feature.properties && Object.prototype.hasOwnProperty.call(feature.properties, 'selectable') && !feature.properties.selectable) {
     return;
   }
 

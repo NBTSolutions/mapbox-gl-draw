@@ -11,4 +11,4 @@ module.exports = function(ring) {
     .concat([ring[0]]);
 
   return [polygon];
-}
+};

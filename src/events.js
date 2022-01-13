@@ -211,7 +211,7 @@ module.exports = function (ctx) {
     }
   };
 
-  function changeMode(modename, nextModeOptions, eventOptions = {}) {
+  function changeMode(modename, nextModeOptions) {
     // if a group select draw mode is active, the cursor should always be shown as a crosshair.
     if (Constants.groupSelectModes.includes(modename)) {
       CM.overrideGetCursorTypeLogic(() => Constants.cursors.ADD);

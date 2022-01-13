@@ -5,7 +5,7 @@ const StringSet = require("../lib/string_set");
 const doubleClickZoom = require("../lib/double_click_zoom");
 const moveFeatures = require("../lib/move_features");
 const Constants = require("../constants");
-const cursors = Constants.cursors
+const cursors = Constants.cursors;
 
 const CoincidentSelect = {};
 
@@ -72,7 +72,7 @@ CoincidentSelect.onSetup = async function(opts) {
   if (feature.type !== "Point") {
     return;
   }
-  featIds = [feature.id];
+
   const { x, y } = this._ctx.map.project(feature.coordinates);
   const halfPixels = 5;
   const bbox = [
@@ -83,7 +83,7 @@ CoincidentSelect.onSetup = async function(opts) {
   const planId = features.find(f => f.properties.vetro_id === feature.id)
     .properties.plan_id;
 
-  for(const f of features){
+  for (const f of features) {
     if (
       f.properties.plan_id === planId &&
       f.geometry.type === "LineString" &&
@@ -91,18 +91,18 @@ CoincidentSelect.onSetup = async function(opts) {
     ) {
 
       let lineGeom = f.geometry;
-      if(typeof this._ctx.options.fetchSourceGeometry === "function"){
+      if (typeof this._ctx.options.fetchSourceGeometry === "function") {
 
         const [ lineSrcGeom, ptSrcGeom ] = await Promise.all([
           this._ctx.options.fetchSourceGeometry(f.properties.vetro_id),
           this._ctx.options.fetchSourceGeometry(state.initiallySelectedFeatureIds[0])
         ]);
 
-        if(lineSrcGeom && lineSrcGeom.type && lineSrcGeom.coordinates.length){
+        if (lineSrcGeom && lineSrcGeom.type && lineSrcGeom.coordinates.length) {
           lineGeom = lineSrcGeom;
         }
 
-        if(ptSrcGeom && ptSrcGeom.type && ptSrcGeom.coordinates.length){
+        if (ptSrcGeom && ptSrcGeom.type && ptSrcGeom.coordinates.length) {
           feature = ptSrcGeom;
         }
       }

@@ -125,7 +125,7 @@ SplitLine.toDisplayFeatures = function toDisplayFeatures(
   return display(geojson);
 };
 
-SplitLine.stopDrawingAndRemove = function stopDrawingAndRemove(state) {
+SplitLine.stopDrawingAndRemove = function stopDrawingAndRemove() {
   this.changeMode("simple_select");
 };
 

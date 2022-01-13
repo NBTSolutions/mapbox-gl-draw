@@ -2,16 +2,14 @@ const simplify = require("@turf/simplify").default;
 const DrawPolygon = require("./draw_polygon");
 const {
   geojsonTypes,
-  updateActions,
   modes,
-  events,
 } = require("../constants");
 const doubleClickZoom = require("../lib/double_click_zoom");
 const calculateTolerance = require("../lib/calculate_tolerance");
 const isSelectable = require("../lib/is_selectable");
 const isPolygonSelfIntersecting = require("../lib/is_polygon_self_intersecting");
 
-const { onMouseMove, ...DrawFreehandPolygon } = Object.assign({}, DrawPolygon);
+const { ...DrawFreehandPolygon } = Object.assign({}, DrawPolygon);
 
 DrawFreehandPolygon.onSetup = function (opts = {}) {
   const polygon = this.newFeature({
@@ -63,7 +61,7 @@ DrawFreehandPolygon.onDrag = DrawFreehandPolygon.onTouchMove = function (state, 
   );
 };
 
-DrawFreehandPolygon.onMouseUp = function (state, e) {
+DrawFreehandPolygon.onMouseUp = function (state) {
   if (state.dragMoving) {
     simplify(state.polygon, {
       mutate: true,

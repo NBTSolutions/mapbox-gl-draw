@@ -1,7 +1,7 @@
 const DrawPolygon = require("./draw_polygon");
 const { geojsonTypes, updateActions, modes, events } = require("../constants");
 const doubleClickZoom = require("../lib/double_click_zoom");
-const { onMouseMove, ...RectangularDraw } = Object.assign({}, DrawPolygon);
+const { ...RectangularDraw } = Object.assign({}, DrawPolygon);
 
 RectangularDraw.onSetup = function () {
   const polygon = this.newFeature({
@@ -54,7 +54,7 @@ RectangularDraw.onDrag = RectangularDraw.onTouchMove = function (state, e) {
   state.polygon.updateCoordinate("0.3", endLng, startLat);
 };
 
-RectangularDraw.onMouseUp = function (state, e) {
+RectangularDraw.onMouseUp = function (state) {
   if (state.dragMoving) {
     // The last vertex in the polygon is set after dragging is done.
     // Otherwise, the vertex will not appear under the cursor while drawing.

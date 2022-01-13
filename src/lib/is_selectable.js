@@ -5,5 +5,5 @@
  * @return {boolean} selectable
  */
 module.exports = function(opts) {
-  return opts.hasOwnProperty('selectable') ? !!opts.selectable : true;
-}
+  return Object.prototype.hasOwnProperty.call(opts, 'selectable') ? !!opts.selectable : true;
+};

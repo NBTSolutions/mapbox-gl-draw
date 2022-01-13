@@ -8,7 +8,5 @@ const unkinkPolygon = require('@turf/unkink-polygon').default;
  * @return {boolean} true if polygon intersects itself
  */
 module.exports = function(coords) {
-  return coords.every(ring => {
-    return ring.length >= 4 && unkinkPolygon(polygon([ring])).features.length > 1;
-  });
-}
+  return coords.every(ring => ring.length >= 4 && unkinkPolygon(polygon([ring])).features.length > 1);
+};

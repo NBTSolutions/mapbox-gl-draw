@@ -1,5 +1,4 @@
 const {
-  noTarget,
   isOfMetaType,
   isInactiveFeature,
   isShiftDown
@@ -136,7 +135,7 @@ DirectSelect.onDblClick = function(state, e) {
   const onlyOneVertexSelected = selectedCoordPaths.length === 1;
   const selectedVertexIsAtEndOfLine = onlyOneVertexSelected
     && (Number(selectedCoordPaths[0]) === 0
-      || Number(selectedCoordPaths[0]) === feature.coordinates.length - 1)
+      || Number(selectedCoordPaths[0]) === feature.coordinates.length - 1);
 
   if (!featureClicked || !featureIsLine || !onlyOneVertexSelected || !selectedVertexIsAtEndOfLine) {
     return;
@@ -177,7 +176,7 @@ DirectSelect.onSetup = function (opts) {
     previousPointsOriginalCoords: [],
   };
 
-  this._ctx.setGetCursorTypeLogic(({ snapped, overFeatures }) => {
+  this._ctx.setGetCursorTypeLogic(({ overFeatures }) => {
     if (!overFeatures || overFeatures.filter(l => l.layer.id.includes('vertex') || l.layer.id.includes('midpoint')).length) {
       return cursors.GRAB;
     }
@@ -235,7 +234,7 @@ DirectSelect.onTrash = function (state) {
   }
 };
 
-DirectSelect.onMouseMove = function (state, e) {
+DirectSelect.onMouseMove = function () {
   return true;
 };
 

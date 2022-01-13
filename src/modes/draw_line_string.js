@@ -17,7 +17,7 @@ DrawLineString.onSetup = function (opts) {
     this._ctx.snapping.setSnapToSelected(false);
   }
 
-  this._ctx.setGetCursorTypeLogic(({ snapped, overFeatures }) => {
+  this._ctx.setGetCursorTypeLogic(({ snapped }) => {
     if (snapped) {
       return cursors.ADD;
     } else {
@@ -229,14 +229,14 @@ DrawLineString.toDisplayFeatures = function (state, geojson, display) {
     createVertex(
       state.line.id,
       geojson.geometry.coordinates[
-      state.direction === "forward"
-        ? geojson.geometry.coordinates.length - 2
-        : 1
+        state.direction === "forward"
+          ? geojson.geometry.coordinates.length - 2
+          : 1
       ],
       `${
-      state.direction === "forward"
-        ? geojson.geometry.coordinates.length - 2
-        : 1
+        state.direction === "forward"
+          ? geojson.geometry.coordinates.length - 2
+          : 1
       }`,
       false
     )

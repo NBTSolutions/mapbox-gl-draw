@@ -1,4 +1,3 @@
-const CommonSelectors = require("../lib/common_selectors");
 const isSelectable = require("../lib/is_selectable");
 const Constants = require("../constants");
 const cursors = Constants.cursors;
@@ -10,7 +9,7 @@ DrawPoint.onSetup = function(opts = {}) {
     this._ctx.snapping.setSnapToSelected(false);
   }
 
-  this._ctx.setGetCursorTypeLogic(({ snapped, overFeatures }) => {
+  this._ctx.setGetCursorTypeLogic(({ snapped }) => {
     if (snapped) {
       return cursors.ADD;
     } else {
@@ -87,7 +86,7 @@ DrawPoint.onStop = function(state) {
 
 DrawPoint.onMouseMove = function (state, e) {
   this._ctx.snapping.snapCoord(e);
-}
+};
 
 DrawPoint.toDisplayFeatures = function(state, geojson, display) {
   // Never render the point we're drawing

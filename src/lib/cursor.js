@@ -1,9 +1,7 @@
 const featuresAt = require("./features_at");
 const cursors = require("../constants").cursors;
 
-const defaultCursorSelector = ({ overFeatures }) => {
-  return overFeatures ? cursors.POINTER : cursors.GRAB;
-};
+const defaultCursorSelector = ({ overFeatures }) => (overFeatures ? cursors.POINTER : cursors.GRAB);
 
 class CursorManager {
   constructor(ctx) {
@@ -35,20 +33,18 @@ class CursorManager {
         isOverSelected: Boolean(glDrawFeats[0]),
         overFeatures: allFeatures.length > 0 ? allFeatures : null,
       });
+    } else if (eventType === "drag") {
+      cursorType = cursors.GRABBING;
+    } else if (this.getCursorType) {
+      cursorType = this.getCursorType({
+        snapped: this.snapped,
+        isOverSelected: Boolean(glDrawFeats[0]),
+        overFeatures: allFeatures.length > 0 ? allFeatures : null,
+      });
     } else {
-      if (eventType === "drag") {
-        cursorType = cursors.GRABBING;
-      } else if (this.getCursorType) {
-        cursorType = this.getCursorType({
-          snapped: this.snapped,
-          isOverSelected: Boolean(glDrawFeats[0]),
-          overFeatures: allFeatures.length > 0 ? allFeatures : null,
-        });
-      } else {
-        cursorType = defaultCursorSelector({
-          overFeatures: allFeatures.length > 0,
-        });
-      }
+      cursorType = defaultCursorSelector({
+        overFeatures: allFeatures.length > 0,
+      });
     }
 
     if (cursorType) {
