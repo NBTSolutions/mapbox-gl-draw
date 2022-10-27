@@ -379,9 +379,18 @@ class Snapping {
     const fullGeometries = await this.fetchSnapGeometries(
       availableFeatures.slice(0, 50)
     );
-
+    
     const lineStrings = fullGeometries.map(({ coordinates }, index) =>
       turfLineString(coordinates, availableFeatures[index].properties)
+    ).map(line => Array.isArray(line.geometry.coordinates[0][0]) ? 
+        {
+          ...line,
+          geometry: {
+            type: line.geometry.type,
+            coordinates: line.geometry.coordinates[0]
+          },
+        }
+      : line
     );
 
     const lineWithCloseVertex = lineStrings.find(
