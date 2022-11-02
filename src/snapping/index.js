@@ -1,10 +1,10 @@
 const throttle = require("lodash.throttle");
 const getNearestPointOnLine = require("@turf/nearest-point-on-line").default;
 const turfDistance = require("@turf/distance").default;
-const turfFlatten = require("@turf/flatten").default;
 const {
   point: turfPoint,
   lineString: turfLineString,
+  multiLineString: turfMultiLineString,
   featureCollection: turfFeatureCollection,
 } = require("@turf/helpers");
 const cloneDeep = require("lodash.clonedeep");
@@ -380,17 +380,9 @@ class Snapping {
       availableFeatures.slice(0, 50)
     );
     
+    // FIX
     const lineStrings = fullGeometries.map(({ coordinates }, index) =>
       turfLineString(coordinates, availableFeatures[index].properties)
-    ).map(line => Array.isArray(line.geometry.coordinates[0][0]) ? 
-        {
-          ...line,
-          geometry: {
-            type: line.geometry.type,
-            coordinates: line.geometry.coordinates[0]
-          },
-        }
-      : line
     );
 
     const lineWithCloseVertex = lineStrings.find(
@@ -470,14 +462,27 @@ class Snapping {
   _getVertexOrClosestPoint(snapGeom, mousePoint) {
     const { x, y } = mousePoint;
     const circle = this._circleFromMousePoint(x, y);
+    const geomTypeIsMulti = snapGeom.geometry.type === 'MultiLineString';
+    let vertex;
+    if(geomTypeIsMulti){
+      const vertexesInCircle = snapGeom.geometry.coordinates.flatMap(
+        coords => coords.map(
+          coord => {
+            if(coord[0]){
+              const coordArray = Array.isArray(coord[0]) ? coord : [coord];
+              return findVertexInCircle(coordArray, circle); 
+            }
+          }
+        )).filter(value=>Array.isArray(value));
+      vertex = vertexesInCircle[0];
+    }else{
+      vertex = findVertexInCircle(snapGeom, circle);
+    }
     
-    const vertex = findVertexInCircle(snapGeom, circle);
-
     if (vertex) return turfPoint(vertex);
 
     const hoverPoint = turfPoint(this.map.unproject([x, y]).toArray());
     const closestPoint = getNearestPointOnLine(snapGeom, hoverPoint);
-
     return closestPoint;
   }
 
@@ -488,13 +493,15 @@ class Snapping {
     if (geomType === "Point") return turfPoint(coordinates);
 
     let lineStringCoordinates = coordinates;
-    if(geomType === 'MultiLineString'){
-      lineStringCoordinates = turfFlatten(this.snappedGeometry).features[0].geometry.coordinates;
-    }
 
     // polygons are converted to lines for snapping, so this will
-    // always be a line if it's not a point
-    const lineString = turfLineString(lineStringCoordinates);
+    // always be a line or multiline if it's not a point
+    let lineString;
+    if(geomType === 'MultiLineString'){
+      lineString = turfMultiLineString(lineStringCoordinates);
+    }else{
+      lineString = turfLineString(lineStringCoordinates);
+    }
 
     return this._getVertexOrClosestPoint(lineString, mousePoint);
   }
