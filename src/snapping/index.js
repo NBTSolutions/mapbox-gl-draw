@@ -1,5 +1,6 @@
 const throttle = require("lodash.throttle");
 const getNearestPointOnLine = require("@turf/nearest-point-on-line").default;
+const turfFlatten = require("@turf/flatten").default;
 const turfDistance = require("@turf/distance").default;
 const {
   point: turfPoint,
@@ -15,7 +16,7 @@ const { getCoord, getCoords, getType } = require("@turf/invariant");
 const {
   getBufferLayerId,
   getBufferLayer,
-  findVertexInCircle,
+  findVertexInCircleMulti,
 } = require("./util");
 const {
   STATIC,
@@ -379,14 +380,14 @@ class Snapping {
     const fullGeometries = await this.fetchSnapGeometries(
       availableFeatures.slice(0, 50)
     );
-    
-    // FIX
-    const lineStrings = fullGeometries.map(({ coordinates }, index) =>
-      turfLineString(coordinates, availableFeatures[index].properties)
-    );
 
+    const lineStrings = fullGeometries.map(({ geomType, coordinates }, index) =>
+      geomType === "MultiLineString"
+        ? turfMultiLineString(coordinates, availableFeatures[index].properties)
+        : turfLineString(coordinates, availableFeatures[index].properties)
+    );
     const lineWithCloseVertex = lineStrings.find(
-      (feature) => !!findVertexInCircle(feature, circle)
+      (feature) => !!findVertexInCircleMulti(feature, circle)
     );
 
     if (lineWithCloseVertex) return lineWithCloseVertex;
@@ -459,30 +460,41 @@ class Snapping {
     this._setSnapHoverState(this.snappedFeature, true);
   }
 
+  // FIX
   _getVertexOrClosestPoint(snapGeom, mousePoint) {
     const { x, y } = mousePoint;
     const circle = this._circleFromMousePoint(x, y);
-    const geomTypeIsMulti = snapGeom.geometry.type === 'MultiLineString';
-    let vertex;
-    if(geomTypeIsMulti){
-      const vertexesInCircle = snapGeom.geometry.coordinates.flatMap(
-        coords => coords.map(
-          coord => {
-            if(coord[0]){
-              const coordArray = Array.isArray(coord[0]) ? coord : [coord];
-              return findVertexInCircle(coordArray, circle); 
-            }
-          }
-        )).filter(value=>Array.isArray(value));
-      vertex = vertexesInCircle[0];
-    }else{
-      vertex = findVertexInCircle(snapGeom, circle);
-    }
-    
+    const hoverPoint = turfPoint(this.map.unproject([x, y]).toArray());
+
+    const vertex = findVertexInCircleMulti(snapGeom, circle, hoverPoint);
     if (vertex) return turfPoint(vertex);
 
-    const hoverPoint = turfPoint(this.map.unproject([x, y]).toArray());
-    const closestPoint = getNearestPointOnLine(snapGeom, hoverPoint);
+    let closestPoint;
+    if (Array.isArray(snapGeom.geometry.coordinates[0][0])) {
+      const { features: flattenedFeatures } = turfFlatten(snapGeom);
+      const flattenedFeaturesSortedByDistance = flattenedFeatures
+        .flatMap((feature) => {
+          if (Array.isArray(feature.geometry.coordinates[0][0])) {
+            // The initial flatten above assumes all flattened geometries will be linestrings
+            // but in some cases we have nested MultiLineStrings
+            if(feature.geometry.type === 'LineString'){
+              feature.geometry.type = 'MultiLineString';
+            }
+            const { features: nestedFlattenedFeatures } = turfFlatten(feature);
+            return nestedFlattenedFeatures.map((nestedFeature) =>{
+              return getNearestPointOnLine(nestedFeature, hoverPoint)
+            }
+            );
+          }
+          return getNearestPointOnLine(feature, hoverPoint);
+        })
+        .sort(
+          (pointA, pointB) => pointA.properties.dist - pointB.properties.dist
+        );
+      return flattenedFeaturesSortedByDistance[0];
+    } else {
+      closestPoint = getNearestPointOnLine(snapGeom, hoverPoint);
+    }
     return closestPoint;
   }
 
@@ -497,9 +509,9 @@ class Snapping {
     // polygons are converted to lines for snapping, so this will
     // always be a line or multiline if it's not a point
     let lineString;
-    if(geomType === 'MultiLineString'){
+    if (geomType === "MultiLineString") {
       lineString = turfMultiLineString(lineStringCoordinates);
-    }else{
+    } else {
       lineString = turfLineString(lineStringCoordinates);
     }
 

@@ -1,3 +1,8 @@
+const {
+  point: turfPoint,
+  featureCollection: turfFeatureCollection,
+} = require("@turf/helpers");
+const getNearestPoint = require("@turf/nearest-point").default;
 const pointInPolygon = require("@turf/boolean-point-in-polygon").default;
 const { getCoords } = require("@turf/invariant");
 
@@ -48,5 +53,40 @@ exports.getBufferLayer = (bufferLayerId, rootLayer, snapDistance) => {
   return bufferLayer;
 };
 
-exports.findVertexInCircle = (feature, circle) =>
+const findVertexInCircle = (feature, circle) =>
   getCoords(feature).find((coord) => pointInPolygon(coord, circle));
+
+exports.findVertexInCircleMulti = (snapGeom, circle, hoverPoint) => {
+  let vertex;
+  if (Array.isArray(snapGeom.geometry.coordinates[0][0])) {
+    const vertexesInCircle = snapGeom.geometry.coordinates
+      .flatMap((coords) =>
+        coords.map((coord) => {
+          if (coord[0]) {
+            const coordArray = Array.isArray(coord[0]) ? coord : [coord];
+            return findVertexInCircle(coordArray, circle);
+          }
+        })
+      )
+      .filter((value) => Array.isArray(value));
+
+    let nearestPoint;
+    if (vertexesInCircle.length > 0) {
+      if (hoverPoint) {
+        const vertexesInCircleFeatureCollection = turfFeatureCollection(
+          vertexesInCircle.map((vertex) => turfPoint(vertex))
+        );
+        nearestPoint = getNearestPoint(
+          hoverPoint,
+          vertexesInCircleFeatureCollection
+        );
+        vertex = nearestPoint.geometry.coordinates;
+      } else {
+        vertex = vertexesInCircle[0];
+      }
+    }
+  } else {
+    vertex = findVertexInCircle(snapGeom, circle);
+  }
+  return vertex;
+};
