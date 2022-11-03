@@ -460,7 +460,6 @@ class Snapping {
     this._setSnapHoverState(this.snappedFeature, true);
   }
 
-  // FIX
   _getVertexOrClosestPoint(snapGeom, mousePoint) {
     const { x, y } = mousePoint;
     const circle = this._circleFromMousePoint(x, y);
