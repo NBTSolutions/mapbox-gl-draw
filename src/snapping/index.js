@@ -1,6 +1,5 @@
 const throttle = require("lodash.throttle");
 const getNearestPointOnLine = require("@turf/nearest-point-on-line").default;
-const turfFlatten = require("@turf/flatten").default;
 const turfDistance = require("@turf/distance").default;
 const {
   point: turfPoint,
@@ -17,6 +16,8 @@ const {
   getBufferLayerId,
   getBufferLayer,
   findVertexInCircleMulti,
+  deepFlatten,
+  isMultiGeometry,
 } = require("./util");
 const {
   STATIC,
@@ -469,24 +470,11 @@ class Snapping {
     if (vertex) return turfPoint(vertex);
 
     let closestPoint;
-    if (Array.isArray(snapGeom.geometry.coordinates[0][0])) {
-      const { features: flattenedFeatures } = turfFlatten(snapGeom);
+    isMultiGeometry;
+    if (isMultiGeometry(snapGeom.geometry)) {
+      const { features: flattenedFeatures } = deepFlatten(snapGeom);
       const flattenedFeaturesSortedByDistance = flattenedFeatures
-        .flatMap((feature) => {
-          if (Array.isArray(feature.geometry.coordinates[0][0])) {
-            // The initial flatten above assumes all flattened geometries will be linestrings
-            // but in some cases we have nested MultiLineStrings
-            if(feature.geometry.type === 'LineString'){
-              feature.geometry.type = 'MultiLineString';
-            }
-            const { features: nestedFlattenedFeatures } = turfFlatten(feature);
-            return nestedFlattenedFeatures.map((nestedFeature) =>{
-              return getNearestPointOnLine(nestedFeature, hoverPoint)
-            }
-            );
-          }
-          return getNearestPointOnLine(feature, hoverPoint);
-        })
+        .flatMap((feature) => getNearestPointOnLine(feature, hoverPoint))
         .sort(
           (pointA, pointB) => pointA.properties.dist - pointB.properties.dist
         );

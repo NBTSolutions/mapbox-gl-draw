@@ -2,6 +2,7 @@ const {
   point: turfPoint,
   featureCollection: turfFeatureCollection,
 } = require("@turf/helpers");
+const turfFlatten = require("@turf/flatten").default;
 const getNearestPoint = require("@turf/nearest-point").default;
 const pointInPolygon = require("@turf/boolean-point-in-polygon").default;
 const { getCoords } = require("@turf/invariant");
@@ -56,9 +57,11 @@ exports.getBufferLayer = (bufferLayerId, rootLayer, snapDistance) => {
 const findVertexInCircle = (feature, circle) =>
   getCoords(feature).find((coord) => pointInPolygon(coord, circle));
 
+exports.isMultiGeometry = (geometry) => geometry.coordinates && Array.isArray(geometry.coordinates[0][0])
+
 exports.findVertexInCircleMulti = (snapGeom, circle, hoverPoint) => {
   let vertex;
-  if (Array.isArray(snapGeom.geometry.coordinates[0][0])) {
+  if (exports.isMultiGeometry(snapGeom.geometry)) {
     const vertexesInCircle = snapGeom.geometry.coordinates
       .flatMap((coords) =>
         coords.map((coord) => {
@@ -70,13 +73,12 @@ exports.findVertexInCircleMulti = (snapGeom, circle, hoverPoint) => {
       )
       .filter((value) => Array.isArray(value));
 
-    let nearestPoint;
     if (vertexesInCircle.length > 0) {
       if (hoverPoint) {
         const vertexesInCircleFeatureCollection = turfFeatureCollection(
           vertexesInCircle.map((vertex) => turfPoint(vertex))
         );
-        nearestPoint = getNearestPoint(
+         const nearestPoint = getNearestPoint(
           hoverPoint,
           vertexesInCircleFeatureCollection
         );
@@ -90,3 +92,12 @@ exports.findVertexInCircleMulti = (snapGeom, circle, hoverPoint) => {
   }
   return vertex;
 };
+
+exports.deepFlatten = (feature) => {
+  const { features: flattenedFeatures } = turfFlatten(feature);
+  flattenedFeatures.reduce((deepFlattenedFeatures, nestedFeature) => {
+    deepFlattenedFeatures.push([nestedFeature])
+    return deepFlattenedFeatures;
+  }, []);
+  return turfFeatureCollection(flattenedFeatures);
+}
