@@ -63,7 +63,9 @@ const findVertexInCircle = (feature, circle) =>
   getCoords(feature).find((coord) => pointInPolygon(coord, circle));
 
 exports.isMultiGeometry = (geometry) =>
-  geometry && Array.isArray(geometry.coordinates[0][0]);
+  geometry &&
+  Array.isArray(geometry.coordinates[0]) &&
+  Array.isArray(geometry.coordinates[0][0]);
 
 exports.findVertexInCircleMulti = (snapGeom, circle, hoverPoint) => {
   let vertex;
