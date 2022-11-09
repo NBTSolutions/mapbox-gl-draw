@@ -54,37 +54,39 @@ exports.getBufferLayer = (bufferLayerId, rootLayer, snapDistance) => {
   return bufferLayer;
 };
 
+const isVertexArray = (coordinates) =>
+  Array.isArray(coordinates) &&
+  !isNaN(coordinates[0]) &&
+  !isNaN(coordinates[1]);
+
 const findVertexInCircle = (feature, circle) =>
   getCoords(feature).find((coord) => pointInPolygon(coord, circle));
 
-exports.isMultiGeometry = (geometry) => geometry.coordinates && Array.isArray(geometry.coordinates[0][0])
+exports.isMultiGeometry = (geometry) =>
+  geometry && Array.isArray(geometry.coordinates[0][0]);
 
 exports.findVertexInCircleMulti = (snapGeom, circle, hoverPoint) => {
   let vertex;
   if (exports.isMultiGeometry(snapGeom.geometry)) {
-    const vertexesInCircle = snapGeom.geometry.coordinates
-      .flatMap((coords) =>
-        coords.map((coord) => {
-          if (coord[0]) {
-            const coordArray = Array.isArray(coord[0]) ? coord : [coord];
-            return findVertexInCircle(coordArray, circle);
-          }
-        })
-      )
-      .filter((value) => Array.isArray(value));
+    const { features: flattenedFeatures } = exports.deepFlatten(
+      snapGeom.geometry
+    );
+    const verticesInCircle = flattenedFeatures
+      .map((feature) => findVertexInCircle(feature, circle))
+      .filter(isVertexArray);
 
-    if (vertexesInCircle.length > 0) {
+    if (verticesInCircle.length > 0) {
       if (hoverPoint) {
-        const vertexesInCircleFeatureCollection = turfFeatureCollection(
-          vertexesInCircle.map((vertex) => turfPoint(vertex))
+        const verticesInCircleFeatureCollection = turfFeatureCollection(
+          verticesInCircle.map((vertex) => turfPoint(vertex))
         );
-         const nearestPoint = getNearestPoint(
+        const nearestPoint = getNearestPoint(
           hoverPoint,
-          vertexesInCircleFeatureCollection
+          verticesInCircleFeatureCollection
         );
         vertex = nearestPoint.geometry.coordinates;
       } else {
-        vertex = vertexesInCircle[0];
+        vertex = verticesInCircle[0];
       }
     }
   } else {
@@ -93,11 +95,26 @@ exports.findVertexInCircleMulti = (snapGeom, circle, hoverPoint) => {
   return vertex;
 };
 
+// This function is needed because turfs flatten utility
+// assumes there will not be nested Multi features
 exports.deepFlatten = (feature) => {
   const { features: flattenedFeatures } = turfFlatten(feature);
-  flattenedFeatures.reduce((deepFlattenedFeatures, nestedFeature) => {
-    deepFlattenedFeatures.push([nestedFeature])
-    return deepFlattenedFeatures;
-  }, []);
-  return turfFeatureCollection(flattenedFeatures);
-}
+  const nf = turfFeatureCollection(
+    flattenedFeatures.reduce((deepFlattenedFeatures, nestedFeature) => {
+      let nestedFeatures;
+      if (exports.isMultiGeometry(nestedFeature.geometry)) {
+        // turfs flatten utility will only flatten features that
+        // have a Multi geometry type
+        if (nestedFeature.geometry.type === "LineString") {
+          nestedFeature.geometry.type = "MultiLineString";
+        }
+        nestedFeatures = turfFlatten(nestedFeature).features;
+      } else {
+        nestedFeatures = [nestedFeature];
+      }
+      deepFlattenedFeatures.push(...nestedFeatures);
+      return deepFlattenedFeatures;
+    }, [])
+  );
+  return nf;
+};

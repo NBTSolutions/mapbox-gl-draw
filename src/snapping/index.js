@@ -382,11 +382,12 @@ class Snapping {
       availableFeatures.slice(0, 50)
     );
 
-    const lineStrings = fullGeometries.map(({ geomType, coordinates }, index) =>
-      geomType === "MultiLineString"
-        ? turfMultiLineString(coordinates, availableFeatures[index].properties)
-        : turfLineString(coordinates, availableFeatures[index].properties)
+    const lineStrings = fullGeometries.map((geometry, index) =>
+      isMultiGeometry(geometry)
+        ? turfMultiLineString(geometry.coordinates, availableFeatures[index].properties)
+        : turfLineString(geometry.coordinates, availableFeatures[index].properties)
     );
+
     const lineWithCloseVertex = lineStrings.find(
       (feature) => !!findVertexInCircleMulti(feature, circle)
     );
@@ -468,9 +469,9 @@ class Snapping {
 
     const vertex = findVertexInCircleMulti(snapGeom, circle, hoverPoint);
     if (vertex) return turfPoint(vertex);
-
+    
     let closestPoint;
-    isMultiGeometry;
+
     if (isMultiGeometry(snapGeom.geometry)) {
       const { features: flattenedFeatures } = deepFlatten(snapGeom);
       const flattenedFeaturesSortedByDistance = flattenedFeatures
