@@ -1,10 +1,10 @@
 const throttle = require("lodash.throttle");
 const getNearestPointOnLine = require("@turf/nearest-point-on-line").default;
 const turfDistance = require("@turf/distance").default;
-const turfFlatten = require("@turf/flatten").default;
 const {
   point: turfPoint,
   lineString: turfLineString,
+  multiLineString: turfMultiLineString,
   featureCollection: turfFeatureCollection,
 } = require("@turf/helpers");
 const cloneDeep = require("lodash.clonedeep");
@@ -15,7 +15,9 @@ const { getCoord, getCoords, getType } = require("@turf/invariant");
 const {
   getBufferLayerId,
   getBufferLayer,
-  findVertexInCircle,
+  findVertexInCircleMulti,
+  deepFlatten,
+  isMultiGeometry,
 } = require("./util");
 const {
   STATIC,
@@ -379,22 +381,15 @@ class Snapping {
     const fullGeometries = await this.fetchSnapGeometries(
       availableFeatures.slice(0, 50)
     );
-    
-    const lineStrings = fullGeometries.map(({ coordinates }, index) =>
-      turfLineString(coordinates, availableFeatures[index].properties)
-    ).map(line => Array.isArray(line.geometry.coordinates[0][0]) ? 
-        {
-          ...line,
-          geometry: {
-            type: line.geometry.type,
-            coordinates: line.geometry.coordinates[0]
-          },
-        }
-      : line
+
+    const lineStrings = fullGeometries.map((geometry, index) =>
+      isMultiGeometry(geometry)
+        ? turfMultiLineString(geometry.coordinates, availableFeatures[index].properties)
+        : turfLineString(geometry.coordinates, availableFeatures[index].properties)
     );
 
     const lineWithCloseVertex = lineStrings.find(
-      (feature) => !!findVertexInCircle(feature, circle)
+      (feature) => !!findVertexInCircleMulti(feature, circle)
     );
 
     if (lineWithCloseVertex) return lineWithCloseVertex;
@@ -470,14 +465,24 @@ class Snapping {
   _getVertexOrClosestPoint(snapGeom, mousePoint) {
     const { x, y } = mousePoint;
     const circle = this._circleFromMousePoint(x, y);
-    
-    const vertex = findVertexInCircle(snapGeom, circle);
-
-    if (vertex) return turfPoint(vertex);
-
     const hoverPoint = turfPoint(this.map.unproject([x, y]).toArray());
-    const closestPoint = getNearestPointOnLine(snapGeom, hoverPoint);
 
+    const vertex = findVertexInCircleMulti(snapGeom, circle, hoverPoint);
+    if (vertex) return turfPoint(vertex);
+    
+    let closestPoint;
+
+    if (isMultiGeometry(snapGeom.geometry)) {
+      const { features: flattenedFeatures } = deepFlatten(snapGeom);
+      const flattenedFeaturesSortedByDistance = flattenedFeatures
+        .flatMap((feature) => getNearestPointOnLine(feature, hoverPoint))
+        .sort(
+          (pointA, pointB) => pointA.properties.dist - pointB.properties.dist
+        );
+      return flattenedFeaturesSortedByDistance[0];
+    } else {
+      closestPoint = getNearestPointOnLine(snapGeom, hoverPoint);
+    }
     return closestPoint;
   }
 
@@ -488,13 +493,15 @@ class Snapping {
     if (geomType === "Point") return turfPoint(coordinates);
 
     let lineStringCoordinates = coordinates;
-    if(geomType === 'MultiLineString'){
-      lineStringCoordinates = turfFlatten(this.snappedGeometry).features[0].geometry.coordinates;
-    }
 
     // polygons are converted to lines for snapping, so this will
-    // always be a line if it's not a point
-    const lineString = turfLineString(lineStringCoordinates);
+    // always be a line or multiline if it's not a point
+    let lineString;
+    if (geomType === "MultiLineString") {
+      lineString = turfMultiLineString(lineStringCoordinates);
+    } else {
+      lineString = turfLineString(lineStringCoordinates);
+    }
 
     return this._getVertexOrClosestPoint(lineString, mousePoint);
   }
