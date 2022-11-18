@@ -249,7 +249,7 @@ class Snapping {
     // find index of coord to update
     const feature = cloneDeep(this.store.ctx.api.getAll().features[0]);
     const isMultiFeature = isMultiGeometry(feature.geometry);
-    // Multi geometries are handled using turf/nearest-point and not turf/nearest-point-on-line
+    // Need to extend the functionality below to work with Multi geometry features
     if (!isMultiFeature) {
       const isPolygon = getType(feature) === "Polygon";
       const coords = isPolygon ? getCoords(feature)[0] : getCoords(feature);
