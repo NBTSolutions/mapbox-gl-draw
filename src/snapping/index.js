@@ -248,26 +248,29 @@ class Snapping {
 
     // find index of coord to update
     const feature = cloneDeep(this.store.ctx.api.getAll().features[0]);
-    const isPolygon = getType(feature) === "Polygon";
-    const coords = isPolygon ? getCoords(feature)[0] : getCoords(feature);
-    const index = coords.findIndex(
-      (coord) => coord[0] === updatedCoord[0] && coord[1] === updatedCoord[1]
-    );
-
-    // update feature with the true closest point
-    const targetCoordinates = isPolygon
-      ? feature.geometry.coordinates[0]
-      : feature.geometry.coordinates;
-
-    targetCoordinates.splice(index, 1, getCoord(closestPoint));
-
-    // if first coord was changed, need to change last coord as well
-    if (isPolygon && index === 0) {
-      targetCoordinates.splice(
-        feature.geometry.coordinates[0].length - 1,
-        1,
-        getCoord(closestPoint)
+    const isMultiFeature = isMultiGeometry(feature.geometry);
+    // Multi geometries are handled using turf/nearest-point and not turf/nearest-point-on-line
+    if (!isMultiFeature) {
+      const isPolygon = getType(feature) === "Polygon";
+      const coords = isPolygon ? getCoords(feature)[0] : getCoords(feature);
+      const index = coords.findIndex(
+        (coord) => coord[0] === updatedCoord[0] && coord[1] === updatedCoord[1]
       );
+      // update feature with the true closest point
+      const targetCoordinates = isPolygon
+        ? feature.geometry.coordinates[0]
+        : feature.geometry.coordinates;
+
+      targetCoordinates.splice(index, 1, getCoord(closestPoint));
+
+      // if first coord was changed, need to change last coord as well
+      if (isPolygon && index === 0) {
+        targetCoordinates.splice(
+          feature.geometry.coordinates[0].length - 1,
+          1,
+          getCoord(closestPoint)
+        );
+      }
     }
 
     // set this feature as the drawing
@@ -384,8 +387,14 @@ class Snapping {
 
     const lineStrings = fullGeometries.map((geometry, index) =>
       isMultiGeometry(geometry)
-        ? turfMultiLineString(geometry.coordinates, availableFeatures[index].properties)
-        : turfLineString(geometry.coordinates, availableFeatures[index].properties)
+        ? turfMultiLineString(
+            geometry.coordinates,
+            availableFeatures[index].properties
+          )
+        : turfLineString(
+            geometry.coordinates,
+            availableFeatures[index].properties
+          )
     );
 
     const lineWithCloseVertex = lineStrings.find(
@@ -469,7 +478,7 @@ class Snapping {
 
     const vertex = findVertexInCircleMulti(snapGeom, circle, hoverPoint);
     if (vertex) return turfPoint(vertex);
-    
+
     let closestPoint;
 
     if (isMultiGeometry(snapGeom.geometry)) {
