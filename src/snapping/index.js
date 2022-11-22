@@ -191,29 +191,66 @@ class Snapping {
     // a polygon, nearestPointOnLine may give an innacurate result (e.g., slightly off the line),
     // especially if the line is very long. Therefore, when the vertex is "complete", we go to the
     // database to get a point that is truly on the snapped-to feature
-    this.map.on("mousedown", async () => {
+    this.map.on("mousedown", async (e) => {
       if (!this.snappedGeometry || !this._drawEndsOnMouseDown()) return;
 
-      this._handleSnapEnd();
+      this._handleSnapEnd(e);
     });
 
-    this.map.on("mouseup", async () => {
+    this.map.on("mouseup", async (e) => {
       if (!this.snappedGeometry || !this._drawEndsOnMouseUp()) return;
 
-      this._handleSnapEnd();
+      this._handleSnapEnd(e);
     });
   }
 
-  _handleSnapEnd() {
+  _handleSnapEnd(e) {
     // setTimeout called because sometimes the draw store will not have correct coordinates
     // (e.g., point draw will have an empty array of coordinates)
-    setTimeout(() => {
+    setTimeout(async () => {
+      await this._setSnappedFeature(e);
+
       if (this._isLineDraw()) {
         this._handleLineStringAndPolygonSnapEnd();
       } else if (this._isPointDraw()) {
         this._handlePointSnapEnd();
       }
     });
+  }
+
+  async _setSnappedFeature(e) {
+    const {
+      point: { x, y },
+    } = e;
+
+    let snapToFeature;
+
+    // avoid snapping points to points
+    if (this._isLineDraw()) {
+      snapToFeature = this._getClosestMapboxPoint(x, y);
+    }
+
+    if (!snapToFeature) {
+      snapToFeature = await this._getClosestLineStringOrPolygon(x, y);
+    }
+
+    if (!snapToFeature) {
+      this._mouseoutHandler();
+      return;
+    }
+
+    if (this.snappedFeature) {
+      this._setSnapHoverState(this.snappedFeature, false);
+    }
+
+    // snappedGeometry: geometry of snapped-to feature retrieved from database
+    // snappedFeature: mapbox feature of snapped to feature - has metadata but simplified geometry
+    this.snappedGeometry = await this.fetchSnapGeometry(snapToFeature);
+
+    if (!this.snappedGeometry) return;
+
+    this.snappedFeature = snapToFeature;
+    this._setSnapHoverState(this.snappedFeature, true);
   }
 
   async _handlePointSnapEnd() {
@@ -437,38 +474,7 @@ class Snapping {
       return;
     }
 
-    const {
-      point: { x, y },
-    } = e;
-
-    let snapToFeature;
-
-    // avoid snapping points to points
-    if (this._isLineDraw()) {
-      snapToFeature = this._getClosestMapboxPoint(x, y);
-    }
-
-    if (!snapToFeature) {
-      snapToFeature = await this._getClosestLineStringOrPolygon(x, y);
-    }
-
-    if (!snapToFeature) {
-      this._mouseoutHandler();
-      return;
-    }
-
-    if (this.snappedFeature) {
-      this._setSnapHoverState(this.snappedFeature, false);
-    }
-
-    // snappedGeometry: geometry of snapped-to feature retrieved from database
-    // snappedFeature: mapbox feature of snapped to feature - has metadata but simplified geometry
-    this.snappedGeometry = await this.fetchSnapGeometry(snapToFeature);
-
-    if (!this.snappedGeometry) return;
-
-    this.snappedFeature = snapToFeature;
-    this._setSnapHoverState(this.snappedFeature, true);
+    await this._setSnappedFeature(e);
   }
 
   _getVertexOrClosestPoint(snapGeom, mousePoint) {
