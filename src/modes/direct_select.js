@@ -142,7 +142,7 @@ DirectSelect.onDblClick = function(state, e) {
   const onlyOneVertexSelected = selectedCoordPaths.length === 1;
   const selectedVertexIsAtEndOfLine = onlyOneVertexSelected
     && (Number(selectedCoordPaths[0]) === 0
-      || Number(selectedCoordPaths[0]) === feature.coordinates.length - 1)
+      || Number(selectedCoordPaths[0]) === feature.coordinates.length - 1);
 
   if (!featureClicked || !featureIsLine || !onlyOneVertexSelected || !selectedVertexIsAtEndOfLine) {
     return;
