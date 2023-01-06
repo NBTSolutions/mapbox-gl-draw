@@ -271,9 +271,11 @@ class Snapping {
   }
 
   async _handleLineStringAndPolygonSnapEnd() {
+    if (!this.snappedFeature) return;
     if (this._isSnappedToPoint()) return;
 
     // get edited coordinate
+    if (!this.store.ctx.api.getSelectedPoints().features[0]) return;
     const updatedCoord = this._getUpdatedLineDrawCoord();
 
     const [lng, lat] = updatedCoord;
@@ -293,6 +295,10 @@ class Snapping {
       const index = coords.findIndex(
         (coord) => coord[0] === updatedCoord[0] && coord[1] === updatedCoord[1]
       );
+
+      // there is a chance that the vertex is being deleted, so no snapping needed.
+      if (index < 0) return;
+
       // update feature with the true closest point
       const targetCoordinates = isPolygon
         ? feature.geometry.coordinates[0]
@@ -423,15 +429,15 @@ class Snapping {
     );
 
     const lineStrings = fullGeometries.map((geometry, index) =>
-      isMultiGeometry(geometry)
+      (isMultiGeometry(geometry)
         ? turfMultiLineString(
-            geometry.coordinates,
-            availableFeatures[index].properties
-          )
+          geometry.coordinates,
+          availableFeatures[index].properties
+        )
         : turfLineString(
-            geometry.coordinates,
-            availableFeatures[index].properties
-          )
+          geometry.coordinates,
+          availableFeatures[index].properties
+        ))
     );
 
     const lineWithCloseVertex = lineStrings.find(
@@ -507,7 +513,7 @@ class Snapping {
 
     if (geomType === "Point") return turfPoint(coordinates);
 
-    let lineStringCoordinates = coordinates;
+    const lineStringCoordinates = coordinates;
 
     // polygons are converted to lines for snapping, so this will
     // always be a line or multiline if it's not a point
