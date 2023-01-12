@@ -79,7 +79,7 @@ CoincidentSelect.onSetup = async function (opts) {
     )
   );
 
-  let feature = this.getFeature(state.initiallySelectedFeatureIds[0]);
+  const feature = this.getFeature(state.initiallySelectedFeatureIds[0]);
   if (feature.type !== "Point") {
     return;
   }
@@ -89,42 +89,42 @@ CoincidentSelect.onSetup = async function (opts) {
     [x - halfPixels, y - halfPixels],
     [x + halfPixels, y + halfPixels],
   ];
+
+  const ptSrcGeom = await this._ctx.options.fetchSourceGeometry(
+    state.initiallySelectedFeatureIds[0]
+  );
+  if (!ptSrcGeom?.coordinates?.length) {
+    return;
+  }
+
+  // it is possible that queryRenderedFeatures() return MultiLineString
+  // e.g. a U shape line with middle part of the line in other tile.
   const features = this._ctx.map.queryRenderedFeatures(bbox);
   for (const f of features) {
     if (
       opts.userEditablePlanIds.includes(f.properties.plan_id) &&
-      f.geometry.type === "LineString" &&
-      !f.layer.id.includes("_snap") &&
-      isPointLinestringEndpoint(f.geometry.coordinates, feature.coordinates)
+      (f.geometry.type === "LineString" || f.geometry.type === 'MultiLineString') &&
+      !f.layer.id.includes("_snap")
     ) {
-      let lineGeom = f.geometry;
-      if (typeof this._ctx.options.fetchSourceGeometry === "function") {
-        const [lineSrcGeom, ptSrcGeom] = await Promise.all([
-          this._ctx.options.fetchSourceGeometry(f.properties.vetro_id),
-          this._ctx.options.fetchSourceGeometry(
-            state.initiallySelectedFeatureIds[0]
-          ),
-        ]);
+      const lineSrcGeom = await this._ctx.options.fetchSourceGeometry(f.properties.vetro_id);
+      if (!lineSrcGeom?.coordinates?.length) {
+        return;
+      }
 
-        if (lineSrcGeom && lineSrcGeom.type && lineSrcGeom.coordinates.length) {
-          lineGeom = lineSrcGeom;
-        }
-
-        if (ptSrcGeom && ptSrcGeom.type && ptSrcGeom.coordinates.length) {
-          feature = ptSrcGeom;
-        }
+      if (!isPointLinestringEndpoint(lineSrcGeom.coordinates, ptSrcGeom.coordinates)) {
+        return;
       }
 
       const adjacentLineData = getAdjacentLineData(
-        lineGeom.coordinates,
-        feature.coordinates
+        lineSrcGeom.coordinates,
+        ptSrcGeom.coordinates
       );
       if (adjacentLineData) {
         const { index, adjacentPoints } = adjacentLineData;
         state.coincidentData.push({
           id: f.properties.vetro_id,
           layer_id: f.properties.layer_id,
-          oldGeom: lineGeom,
+          oldGeom: lineSrcGeom,
           updateIndex: index,
           adjacentPoints,
         });
