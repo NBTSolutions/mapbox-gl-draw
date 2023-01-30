@@ -108,11 +108,11 @@ CoincidentSelect.onSetup = async function (opts) {
     ) {
       const lineSrcGeom = await this._ctx.options.fetchSourceGeometry(f.properties.vetro_id);
       if (!lineSrcGeom?.coordinates?.length) {
-        return;
+        continue;
       }
 
       if (!isPointLinestringEndpoint(lineSrcGeom.coordinates, ptSrcGeom.coordinates)) {
-        return;
+        continue;
       }
 
       const adjacentLineData = getAdjacentLineData(
@@ -248,11 +248,15 @@ CoincidentSelect.onMouseOut = function (state) {
 };
 
 CoincidentSelect.onTap = CoincidentSelect.onClick = function (state, e) {
+  // we handle the feature selection on the vetro-2-front-end
+  // no need to do anything here.
+  // it's causing a weird bug
+  return this.clickAnywhere(state, e);
   // Click (with or without shift) on no feature
-  if (CommonSelectors.noTarget(e)) return this.clickAnywhere(state, e); // also tap
-  if (CommonSelectors.isOfMetaType(Constants.meta.VERTEX)(e))
-    return this.clickOnVertex(state, e); //tap
-  if (CommonSelectors.isFeature(e)) return this.clickOnFeature(state, e);
+  // if (CommonSelectors.noTarget(e)) return this.clickAnywhere(state, e); // also tap
+  // if (CommonSelectors.isOfMetaType(Constants.meta.VERTEX)(e))
+  //   return this.clickOnVertex(state, e); //tap
+  // if (CommonSelectors.isFeature(e)) return this.clickOnFeature(state, e);
 };
 
 CoincidentSelect.clickAnywhere = function (state) {
