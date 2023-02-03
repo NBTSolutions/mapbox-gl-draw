@@ -250,9 +250,11 @@ CoincidentSelect.onMouseOut = function (state) {
 CoincidentSelect.onTap = CoincidentSelect.onClick = function (state, e) {
   // Click (with or without shift) on no feature
   if (CommonSelectors.noTarget(e)) return this.clickAnywhere(state, e);
+
   // no need to handle clicking on coincident lines
   // if (CommonSelectors.isOfMetaType(Constants.meta.VERTEX)(e))
   //   return this.clickOnVertex(state, e);
+
   // handle clicking on selected point
   if (CommonSelectors.isFeature(e)) return this.clickOnFeature(state, e);
 };
