@@ -248,15 +248,15 @@ CoincidentSelect.onMouseOut = function (state) {
 };
 
 CoincidentSelect.onTap = CoincidentSelect.onClick = function (state, e) {
-  // we handle the feature selection on the vetro-2-front-end
-  // no need to do anything here.
-  // it's causing a weird bug
-  return this.clickAnywhere(state, e);
   // Click (with or without shift) on no feature
-  // if (CommonSelectors.noTarget(e)) return this.clickAnywhere(state, e); // also tap
+  if (CommonSelectors.noTarget(e)) return this.clickAnywhere(state, e);
+
+  // no need to handle clicking on coincident lines
   // if (CommonSelectors.isOfMetaType(Constants.meta.VERTEX)(e))
-  //   return this.clickOnVertex(state, e); //tap
-  // if (CommonSelectors.isFeature(e)) return this.clickOnFeature(state, e);
+  //   return this.clickOnVertex(state, e);
+
+  // handle clicking on selected point
+  if (CommonSelectors.isFeature(e)) return this.clickOnFeature(state, e);
 };
 
 CoincidentSelect.clickAnywhere = function (state) {
