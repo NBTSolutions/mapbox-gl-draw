@@ -13,8 +13,6 @@ const turfCircle = require("@turf/circle").default;
 const { getCoord, getCoords, getType } = require("@turf/invariant");
 
 const {
-  getBufferLayerId,
-  getBufferLayer,
   findVertexInCircleMulti,
   deepFlatten,
   isMultiGeometry,
@@ -52,8 +50,7 @@ class Snapping {
     this.map = ctx.map;
     this.snappedFeature = null;
     this.snappedGeometry = null;
-    this.bufferLayers = [];
-    this.snapLayers = ctx.options.snapLayers;
+    this.snapLayerFilter = ctx.options.snapLayerFilter;
     this.fetchSnapGeometry = ctx.options.fetchSnapGeometry;
     this.fetchSnapGeometries = ctx.options.fetchSnapGeometries;
     this._updateSourceGeomCache = ctx.options._updateSourceGeomCache;
@@ -67,13 +64,13 @@ class Snapping {
     this.store = ctx.store;
     this.snapToSelected = false;
     this.snappingEnabled = false;
+    this.snapLayers = [];
     // this is the amount the endpoints are preferenced as snap points. and is related to the angle between the hover point, the nearest point and the endpoint
     this.vertexPullFactor = Math.sqrt(2);
 
     this._mouseMoveHandler = this._mouseMoveHandler.bind(this);
     this._mouseoutHandler = this._mouseoutHandler.bind(this);
     this.refreshSnapLayers = this.refreshSnapLayers.bind(this);
-    this.setSnapLayers = this.setSnapLayers.bind(this);
     this.clearSnapCoord = this.clearSnapCoord.bind(this);
     this.setSnapToSelected = this.setSnapToSelected.bind(this);
     this.cursorIsSnapped = this.cursorIsSnapped.bind(this);
@@ -104,7 +101,6 @@ class Snapping {
       this.clearSnapCoord();
     });
     this.map.on("draw.refreshsnapping", () => {
-      this.bufferLayers = [];
       this._addSnapSourceAndLayer();
     });
   }
@@ -114,7 +110,6 @@ class Snapping {
   attachApi(ctx) {
     // To whom so ever has beef with this, I'm with you, but without re-designing things on a greater scale... this is how it is.
     ctx.api.refreshSnapLayers = this.refreshSnapLayers;
-    ctx.api.setSnapLayers = this.setSnapLayers;
     ctx.api.clearSnapCoord = this.clearSnapCoord;
     ctx.api.cursorIsSnapped = this.cursorIsSnapped;
     ctx.api.disableSnapping = this.disableSnapping;
@@ -130,13 +125,10 @@ class Snapping {
     this._updateSnapLayers();
   }
 
-  setSnapLayers(snapLayers) {
-    this.snapLayers = snapLayers;
-    this._updateSnapLayers();
-  }
   setSnapToSelected(shouldSnapToSelected) {
     this.snapToSelected = shouldSnapToSelected;
   }
+
   cursorIsSnapped() {
     const source = this.map.getSource("_snap_vertex");
     return source && source._data.features.length > 0;
@@ -144,7 +136,7 @@ class Snapping {
 
   clearSnapCoord() {
     const source = this.map.getSource("_snap_vertex");
-    if (source) {
+    if (source && source._data.features.length > 0) {
       source.setData({ type: "FeatureCollection", features: [] });
     }
   }
@@ -171,7 +163,6 @@ class Snapping {
 
   disableSnapping() {
     this.snappingEnabled = false;
-    this._snappableLayers().forEach((l) => this._removeSnapBuffer(l));
     this.map.off("mousemove", this._throttledMouseMoveHandler);
     this.map.off("mouseout", this._mouseoutHandler);
 
@@ -182,7 +173,6 @@ class Snapping {
 
   enableSnapping() {
     this.snappingEnabled = true;
-    this._snappableLayers().forEach((l) => this._addSnapBuffer(l));
     this._addSnapSourceAndLayer();
     this.map.on("mousemove", this._throttledMouseMoveHandler);
     this.map.on("mouseout", this._mouseoutHandler);
@@ -191,13 +181,13 @@ class Snapping {
     // a polygon, nearestPointOnLine may give an innacurate result (e.g., slightly off the line),
     // especially if the line is very long. Therefore, when the vertex is "complete", we go to the
     // database to get a point that is truly on the snapped-to feature
-    this.map.on("mousedown", async (e) => {
+    this.map.on("mousedown", (e) => {
       if (!this.snappedGeometry || !this._drawEndsOnMouseDown()) return;
 
       this._handleSnapEnd(e);
     });
 
-    this.map.on("mouseup", async (e) => {
+    this.map.on("mouseup", (e) => {
       if (!this.snappedGeometry || !this._drawEndsOnMouseUp()) return;
 
       this._handleSnapEnd(e);
@@ -359,67 +349,53 @@ class Snapping {
     return circle;
   }
 
+  // create a square polygon around a point where each side is <halfPixels> away from the center
+  getPixelBboxFromPoint({ x, y, halfPixels = 10 }) {
+    // ensure that high dpi screens have the same size bounding box
+    const adjustedHalfPixels = halfPixels * window.devicePixelRatio;
+
+    const pixelBbox = [
+      [x - adjustedHalfPixels, y - adjustedHalfPixels],
+      [x + adjustedHalfPixels, y + adjustedHalfPixels],
+    ];
+
+    return pixelBbox;
+  }
+
   _getClosestMapboxPoint(x, y) {
-    // get point buffers
-    const pointBufferIds = this.bufferLayers
-      .filter((id) => id.endsWith("point"))
-      .map(getBufferLayerId);
+    const pointIds = this.snapLayers.filter((id) => id.endsWith("point"));
+
+    const bbox = this.getPixelBboxFromPoint({ x, y });
 
     // get close by points
-    const availablePoints = this.map.queryRenderedFeatures([x, y], {
-      layers: pointBufferIds,
+    const availablePoints = this.map.queryRenderedFeatures(bbox, {
+      layers: pointIds,
     });
 
-    // everything's a vertex so just return the closest point
     return availablePoints[0];
-
-    // find closest point to mouse
-
-    // leaving in case we do want to get the closest point
-    // const coordinates = availablePoints.map((f) => getCoord(f));
-
-    // let closestIndex = null;
-    // let closest = null;
-
-    // const { lng, lat } = this.map.unproject([x, y]);
-    // const mousePoint = turfPoint([lng, lat]);
-
-    // coordinates.forEach((coord, index) => {
-    //   const distance = turfDistance(turfPoint(coord), mousePoint);
-
-    //   if (!closest || closest > distance) {
-    //     closest = distance;
-    //     closestIndex = index;
-    //   }
-    // });
-
-    // // return point
-    // if (closestIndex !== null) return availablePoints[closestIndex];
-
-    // return null;
   }
 
   async _getClosestLineStringOrPolygon(x, y) {
-    // get linestring and polygon buffers
-    const lnpBufferIds = this.bufferLayers
-      .filter((id) => id.match(/(linestring|polygon)$/))
-      .map(getBufferLayerId);
+    const polyOrLineIds = this.snapLayers.filter((id) =>
+      id.match(/(polygon|linestring)$/)
+    );
 
     const selected = this.store.ctx.api.getSelected().features[0];
     const filter = selected
       ? ["!=", ["get", "vetro_id"], selected.id]
       : ["all"];
 
+    const bbox = this.getPixelBboxFromPoint({ x, y });
     // get close by linestring and polygons
-    const availableFeatures = this.map.queryRenderedFeatures([x, y], {
+    const availableFeatures = this.map.queryRenderedFeatures(bbox, {
       filter,
-      layers: lnpBufferIds,
+      layers: polyOrLineIds,
     });
 
     if (availableFeatures.length === 0) return null;
     if (availableFeatures.length === 1) return availableFeatures[0];
 
-    // find an feature that has a vertex near the snap point
+    // find a feature that has a vertex near the snap point
     const circle = this._circleFromMousePoint(x, y);
 
     // get real geometry for every feature so that it will have all vertexes
@@ -428,17 +404,19 @@ class Snapping {
       availableFeatures.slice(0, 50)
     );
 
-    const lineStrings = fullGeometries.map((geometry, index) =>
-      (isMultiGeometry(geometry)
-        ? turfMultiLineString(
+    const lineStrings = fullGeometries.map((geometry, index) => {
+      if (isMultiGeometry(geometry)) {
+        return turfMultiLineString(
           geometry.coordinates,
           availableFeatures[index].properties
-        )
-        : turfLineString(
-          geometry.coordinates,
-          availableFeatures[index].properties
-        ))
-    );
+        );
+      }
+
+      return turfLineString(
+        geometry.coordinates,
+        availableFeatures[index].properties
+      );
+    });
 
     const lineWithCloseVertex = lineStrings.find(
       (feature) => !!findVertexInCircleMulti(feature, circle)
@@ -564,47 +542,15 @@ class Snapping {
   /** INTERNAL METHODS */
 
   _snappableLayers() {
-    if (typeof this.snapLayers === "function") {
-      const style = this.map.getStyle();
+    const style = this.map.getStyle();
 
-      if (style) {
-        return style.layers
-          .filter((l) => !l.id.match(/^_snap_/) && this.snapLayers(l))
-          .map((l) => l.id);
-      }
-
-      return [];
-    } else {
-      return this.snapLayers || [];
-    }
-  }
-
-  _removeSnapBuffer(layerId) {
-    const bufferLayerId = getBufferLayerId(layerId);
-    if (this.map.getLayer(bufferLayerId)) this.map.removeLayer(bufferLayerId);
-  }
-
-  _addSnapBuffer(layerId) {
-    const bufferLayerId = getBufferLayerId(layerId);
-    const bufferLayerExists = this.map.getLayer(bufferLayerId);
-    if (bufferLayerExists) {
-      this.map.removeLayer(bufferLayerId);
-    }
-    const layerDef = this.map.getLayer(layerId);
-    if (!layerDef) {
-      console.error(
-        `Layer ${layerId} does not exist in map; can't snap to it.`
-      );
-      return;
+    if (style) {
+      return style.layers
+        .filter((l) => this.snapLayerFilter(l))
+        .map((l) => l.id);
     }
 
-    const bufferLayer = getBufferLayer(
-      bufferLayerId,
-      layerDef,
-      this.snapDistance
-    );
-
-    this.map.addLayer(bufferLayer);
+    return [];
   }
 
   _setSnapHoverState(feature, state) {
@@ -629,34 +575,7 @@ class Snapping {
   _updateSnapLayers() {
     if (!this.snappingEnabled) return;
 
-    setTimeout(() => {
-      const newLayers = this._snappableLayers();
-
-      this.bufferLayers
-        .filter((l) => !newLayers.includes(l))
-        .forEach((l) => this._removeSnapBuffer(l));
-
-      newLayers
-        .filter((l) => !this.bufferLayers.includes(l))
-        .forEach((l) => this._addSnapBuffer(l));
-
-      newLayers
-        .filter((l) => this.bufferLayers.includes(l))
-        .forEach((l) => {
-          const bufferLayerId = getBufferLayerId(l);
-
-          if (this.map.getLayer(bufferLayerId)) {
-            const parentFilter = this.map.getLayer(l).filter;
-
-            const bufferFilter = parentFilter.filter(
-              (filt) => !(filt instanceof Array) || filt[0] !== "!="
-            );
-
-            this.map.setFilter(bufferLayerId, bufferFilter);
-          }
-        });
-      this.bufferLayers = newLayers;
-    });
+    this.snapLayers = this._snappableLayers();
   }
 }
 
