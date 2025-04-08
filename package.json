@@ -1,6 +1,6 @@
 {
   "name": "@mapbox/mapbox-gl-draw",
-  "version": "1.2.23",
+  "version": "1.2.24",
   "description": "A drawing component for Mapbox GL JS",
   "homepage": "https://github.com/mapbox/mapbox-gl-draw",
   "author": "mapbox",
@@ -76,7 +76,6 @@
     "@mapbox/geojson-area": "^0.2.1",
     "@mapbox/geojson-extent": "^0.3.2",
     "@mapbox/geojson-normalize": "0.0.1",
-    "@mapbox/geojsonhint": "3.0.0",
     "@mapbox/point-geometry": "0.1.0",
     "@turf/circle": "^6.5.0",
     "@turf/distance": "^6.0.1",
