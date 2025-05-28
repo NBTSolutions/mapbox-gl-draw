@@ -85,7 +85,7 @@ class Snapping {
     this.initialize();
     this._throttledMouseMoveHandler = throttle(
       this._mouseMoveHandler,
-      MOUSEMOVE_THROTTLE_MS
+      MOUSEMOVE_THROTTLE_MS,
     );
     this.attachApi(ctx);
   }
@@ -213,12 +213,7 @@ class Snapping {
       point: { x, y },
     } = e;
 
-    let snapToFeature;
-
-    // avoid snapping points to points
-    if (this._isLineDraw()) {
-      snapToFeature = this._getClosestMapboxPoint(x, y);
-    }
+    let snapToFeature = this._getClosestMapboxPoint(x, y);
 
     if (!snapToFeature) {
       snapToFeature = await this._getClosestLineStringOrPolygon(x, y);
@@ -283,7 +278,7 @@ class Snapping {
       const isPolygon = getType(feature) === "Polygon";
       const coords = isPolygon ? getCoords(feature)[0] : getCoords(feature);
       const index = coords.findIndex(
-        (coord) => coord[0] === updatedCoord[0] && coord[1] === updatedCoord[1]
+        (coord) => coord[0] === updatedCoord[0] && coord[1] === updatedCoord[1],
       );
 
       // there is a chance that the vertex is being deleted, so no snapping needed.
@@ -301,7 +296,7 @@ class Snapping {
         targetCoordinates.splice(
           feature.geometry.coordinates[0].length - 1,
           1,
-          getCoord(closestPoint)
+          getCoord(closestPoint),
         );
       }
     }
@@ -318,7 +313,7 @@ class Snapping {
 
     if (this.store.ctx.api.getMode() === "direct_select") {
       const coord = getCoord(
-        this.store.ctx.api.getSelectedPoints().features[0]
+        this.store.ctx.api.getSelectedPoints().features[0],
       );
 
       return coord;
@@ -339,7 +334,7 @@ class Snapping {
     const mouseLatLng = turfPoint(mousePointAsLngLat);
 
     const snapDistanceDeltaLatLng = turfPoint(
-      this.map.unproject([x + this.snapDistance, y]).toArray()
+      this.map.unproject([x + this.snapDistance, y]).toArray(),
     );
 
     const km = turfDistance(mouseLatLng, snapDistanceDeltaLatLng);
@@ -377,7 +372,7 @@ class Snapping {
 
   async _getClosestLineStringOrPolygon(x, y) {
     const polyOrLineIds = this.snapLayers.filter((id) =>
-      id.match(/(polygon|linestring)$/)
+      id.match(/(polygon|linestring)$/),
     );
 
     const selected = this.store.ctx.api.getSelected().features[0];
@@ -401,25 +396,25 @@ class Snapping {
     // get real geometry for every feature so that it will have all vertexes
     // limit vertex check to 50 features
     const fullGeometries = await this.fetchSnapGeometries(
-      availableFeatures.slice(0, 50)
+      availableFeatures.slice(0, 50),
     );
 
     const lineStrings = fullGeometries.map((geometry, index) => {
       if (isMultiGeometry(geometry)) {
         return turfMultiLineString(
           geometry.coordinates,
-          availableFeatures[index].properties
+          availableFeatures[index].properties,
         );
       }
 
       return turfLineString(
         geometry.coordinates,
-        availableFeatures[index].properties
+        availableFeatures[index].properties,
       );
     });
 
     const lineWithCloseVertex = lineStrings.find(
-      (feature) => !!findVertexInCircleMulti(feature, circle)
+      (feature) => !!findVertexInCircleMulti(feature, circle),
     );
 
     if (lineWithCloseVertex) return lineWithCloseVertex;
@@ -476,7 +471,7 @@ class Snapping {
       const flattenedFeaturesSortedByDistance = flattenedFeatures
         .flatMap((feature) => getNearestPointOnLine(feature, hoverPoint))
         .sort(
-          (pointA, pointB) => pointA.properties.dist - pointB.properties.dist
+          (pointA, pointB) => pointA.properties.dist - pointB.properties.dist,
         );
       return flattenedFeaturesSortedByDistance[0];
     } else {
