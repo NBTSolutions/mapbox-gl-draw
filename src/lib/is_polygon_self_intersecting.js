@@ -1,5 +1,5 @@
 const { polygon } = require('@turf/helpers');
-const unkinkPolygon = require('@turf/unkink-polygon').default;
+const unkinkPolygon = require('@turf/unkink-polygon');
 
 /**
  * Determine if polygon(s) cross their own border

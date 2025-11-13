@@ -69,13 +69,6 @@ DrawPolygon.clickAnywhere = function (state, e) {
   const ring = state.polygon.coordinates[0].slice();
   ring[ring.length - 1] = [lngLat.lng, lngLat.lat];
 
-  if (
-    ring.length >= 4 &&
-    isPolygonSelfIntersecting(createPolygonFromPartialRing(ring))
-  ) {
-    return;
-  }
-
   this.updateUIClasses({ mouse: Constants.cursors.ADD });
   state.polygon.updateCoordinate(
     `0.${state.currentVertexPosition}`,
@@ -164,7 +157,8 @@ DrawPolygon.onStop = function (state) {
 
   //remove last added coordinate
   state.polygon.removeCoordinate(`0.${state.currentVertexPosition}`);
-  if (state.polygon.isValid()) {
+  const ring = [...state.polygon.coordinates[0], state.polygon.coordinates[0][0]];
+  if (state.polygon.isValid() && !isPolygonSelfIntersecting([ring])) {
     this.map.fire(Constants.events.CREATE, {
       features: [state.polygon.toGeoJSON()],
     });
