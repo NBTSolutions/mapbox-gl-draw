@@ -53,6 +53,7 @@ DrawPolygon.onSetup = function (opts) {
 };
 
 DrawPolygon.clickAnywhere = function (state, e) {
+  console.log(state.polygon.coordinates)
   if (
     state.currentVertexPosition > 0 &&
     isEventAtCoordinates(
@@ -144,6 +145,7 @@ DrawPolygon.onTap = DrawPolygon.onClick = function (state, e) {
 };
 
 DrawPolygon.onStop = function (state) {
+  console.log('HIHIH', state.polygon.coordinates)
   this.updateUIClasses({ mouse: Constants.cursors.NONE });
   doubleClickZoom.enable(this);
   this.activateUIButton();
@@ -157,6 +159,11 @@ DrawPolygon.onStop = function (state) {
 
   //remove last added coordinate
   state.polygon.removeCoordinate(`0.${state.currentVertexPosition}`);
+  if (!state.polygon.isValid()) {
+    this.deleteFeature([state.polygon.id], { silent: true });
+    this.changeMode(Constants.modes.SIMPLE_SELECT, {}, { silent: true });
+    return;
+  }
   const ring = [...state.polygon.coordinates[0]];
   const first = ring[0];
   const last = ring[ring.length - 1];
@@ -164,14 +171,15 @@ DrawPolygon.onStop = function (state) {
     ring.push(ring[0]);
   }
 
-  if (state.polygon.isValid() && !isPolygonSelfIntersecting([ring])) {
-    this.map.fire(Constants.events.CREATE, {
-      features: [state.polygon.toGeoJSON()],
-    });
-  } else {
+  if (isPolygonSelfIntersecting([ring])) {
     this.deleteFeature([state.polygon.id], { silent: true });
     this.changeMode(Constants.modes.SIMPLE_SELECT, {}, { silent: true });
+    return;
   }
+
+  this.map.fire(Constants.events.CREATE, {
+    features: [state.polygon.toGeoJSON()],
+  });
 };
 
 DrawPolygon.toDisplayFeatures = function (state, geojson, display) {
