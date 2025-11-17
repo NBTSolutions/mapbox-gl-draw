@@ -53,7 +53,6 @@ DrawPolygon.onSetup = function (opts) {
 };
 
 DrawPolygon.clickAnywhere = function (state, e) {
-  console.log(state.polygon.coordinates)
   if (
     state.currentVertexPosition > 0 &&
     isEventAtCoordinates(
@@ -145,7 +144,6 @@ DrawPolygon.onTap = DrawPolygon.onClick = function (state, e) {
 };
 
 DrawPolygon.onStop = function (state) {
-  console.log('HIHIH', state.polygon.coordinates)
   this.updateUIClasses({ mouse: Constants.cursors.NONE });
   doubleClickZoom.enable(this);
   this.activateUIButton();
