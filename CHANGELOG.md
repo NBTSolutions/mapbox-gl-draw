@@ -1,4 +1,10 @@
-## Changelog
+# Changelog
+
+## 2.0.0
+
+- Move to TypeScript
+- Drop babel, browserify, uglify
+- Add GitHub actions
 
 ## 1.1.2
 
