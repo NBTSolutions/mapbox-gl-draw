@@ -46,7 +46,7 @@ const ModeHandler = function(mode, DrawContext) {
 
         // ensure an event is only handled once
         // we do this to let modes have multiple overlapping selectors
-        // and relay on order of oppertations to filter
+        // and rely on order of operations to filter
         break;
       }
     }
