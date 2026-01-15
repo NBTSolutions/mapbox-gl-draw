@@ -1,5 +1,4 @@
 import Constants from "../constants";
-import CommonSelectors from "../lib/common_selectors";
 import createSupplementaryPoints from "../lib/create_supplementary_points";
 import doubleClickZoom from "../lib/double_click_zoom";
 import mouseEventPoint from "../lib/mouse_event_point";
