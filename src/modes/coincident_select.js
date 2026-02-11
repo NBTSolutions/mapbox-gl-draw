@@ -9,15 +9,16 @@ const cursors = Constants.cursors;
 
 const CoincidentSelect = {};
 const decimalNumber = 100000;
-const roundNumber = (input) => Math.round(input * decimalNumber) / decimalNumber;
+const roundNumber = (input) =>
+  Math.round(input * decimalNumber) / decimalNumber;
 
 const pointsEqual = (point1, point2) =>
   roundNumber(point1[0]) === roundNumber(point2[0]) &&
   roundNumber(point1[1]) === roundNumber(point2[1]);
 
 const pointsApproximatelyEqual = (point1, point2) =>
-  roundNumber(Math.abs(point1[0] - point2[0])) <= 1 / decimalNumber
-  && roundNumber(Math.abs(point1[1] - point2[1])) <= 1 / decimalNumber;
+  roundNumber(Math.abs(point1[0] - point2[0])) <= 1 / decimalNumber &&
+  roundNumber(Math.abs(point1[1] - point2[1])) <= 1 / decimalNumber;
 
 // OverLoaded function. This is serving both to check if the line is connected to the point
 // and also to return the adjacent point(s) in the line to the connected point
@@ -75,15 +76,15 @@ CoincidentSelect.onSetup = async function (opts) {
 
   this.setSelected(
     state.initiallySelectedFeatureIds.filter(
-      (id) => this.getFeature(id) !== undefined
-    )
+      (id) => this.getFeature(id) !== undefined,
+    ),
   );
 
-  const feature = this.getFeature(state.initiallySelectedFeatureIds[0]);
-  if (feature.type !== "Point") {
+  const pointFeature = this.getFeature(state.initiallySelectedFeatureIds[0]);
+  if (pointFeature.type !== "Point") {
     return;
   }
-  const { x, y } = this._ctx.map.project(feature.coordinates);
+  const { x, y } = this._ctx.map.project(pointFeature.coordinates);
   const halfPixels = 5;
   const bbox = [
     [x - halfPixels, y - halfPixels],
@@ -91,7 +92,7 @@ CoincidentSelect.onSetup = async function (opts) {
   ];
 
   const ptSrcGeom = await this._ctx.options.fetchSourceGeometry(
-    state.initiallySelectedFeatureIds[0]
+    state.initiallySelectedFeatureIds[0],
   );
   if (!ptSrcGeom?.coordinates?.length) {
     return;
@@ -100,24 +101,36 @@ CoincidentSelect.onSetup = async function (opts) {
   // it is possible that queryRenderedFeatures() return MultiLineString
   // e.g. a U shape line with middle part of the line in other tile.
   const features = this._ctx.map.queryRenderedFeatures(bbox);
-  for (const f of features) {
+  const filteredFeatures = await this._ctx.options.filterCoincidentCandidates(
+    pointFeature.id,
+    features,
+  );
+  for (const f of filteredFeatures) {
     if (
       opts.userEditablePlanIds.includes(f.properties.plan_id) &&
-      (f.geometry.type === "LineString" || f.geometry.type === 'MultiLineString') &&
+      (f.geometry.type === "LineString" ||
+        f.geometry.type === "MultiLineString") &&
       !f.layer.id.includes("_snap")
     ) {
-      const lineSrcGeom = await this._ctx.options.fetchSourceGeometry(f.properties.vetro_id);
+      const lineSrcGeom = await this._ctx.options.fetchSourceGeometry(
+        f.properties.vetro_id,
+      );
       if (!lineSrcGeom?.coordinates?.length) {
         continue;
       }
 
-      if (!isPointLinestringEndpoint(lineSrcGeom.coordinates, ptSrcGeom.coordinates)) {
+      if (
+        !isPointLinestringEndpoint(
+          lineSrcGeom.coordinates,
+          ptSrcGeom.coordinates,
+        )
+      ) {
         continue;
       }
 
       const adjacentLineData = getAdjacentLineData(
         lineSrcGeom.coordinates,
-        ptSrcGeom.coordinates
+        ptSrcGeom.coordinates,
       );
       if (adjacentLineData) {
         const { index, adjacentPoints } = adjacentLineData;
@@ -157,7 +170,7 @@ CoincidentSelect.fireUpdate = function (coincidentData) {
           coordinates: newLineCoords,
         },
       };
-    }
+    },
   );
   this.map.fire(Constants.events.UPDATE, {
     action: Constants.updateActions.MOVE,
@@ -170,7 +183,7 @@ CoincidentSelect.fireActionable = function () {
   const selectedFeatures = this.getSelected();
 
   const multiFeatures = selectedFeatures.filter((feature) =>
-    this.isInstanceOf("MultiFeature", feature)
+    this.isInstanceOf("MultiFeature", feature),
   );
 
   let combineFeatures = false;
@@ -352,7 +365,7 @@ CoincidentSelect.startBoxSelect = function (state, e) {
   // Enable box select
   state.boxSelectStartLocation = mouseEventPoint(
     e.originalEvent,
-    this.map.getContainer()
+    this.map.getContainer(),
   );
   state.canBoxSelect = true;
 };
@@ -425,7 +438,7 @@ CoincidentSelect.onMouseUp = function (state, e) {
     ];
     const featuresInBox = this.featuresAt(null, bbox, "click");
     const idsToSelect = this.getUniqueIds(featuresInBox).filter(
-      (id) => !this.isSelected(id)
+      (id) => !this.isSelected(id),
     );
 
     if (idsToSelect.length) {
