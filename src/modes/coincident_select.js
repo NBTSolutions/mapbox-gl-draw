@@ -80,11 +80,11 @@ CoincidentSelect.onSetup = async function (opts) {
     ),
   );
 
-  const feature = this.getFeature(state.initiallySelectedFeatureIds[0]);
-  if (feature.type !== "Point") {
+  const pointFeature = this.getFeature(state.initiallySelectedFeatureIds[0]);
+  if (pointFeature.type !== "Point") {
     return;
   }
-  const { x, y } = this._ctx.map.project(feature.coordinates);
+  const { x, y } = this._ctx.map.project(pointFeature.coordinates);
   const halfPixels = 5;
   const bbox = [
     [x - halfPixels, y - halfPixels],
@@ -102,7 +102,7 @@ CoincidentSelect.onSetup = async function (opts) {
   // e.g. a U shape line with middle part of the line in other tile.
   const features = this._ctx.map.queryRenderedFeatures(bbox);
   const filteredFeatures = await this._ctx.options.filterCoincidentCandidates(
-    feature.id,
+    pointFeature.id,
     features,
   );
   for (const f of filteredFeatures) {
