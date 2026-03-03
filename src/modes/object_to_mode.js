@@ -1,5 +1,5 @@
 const ModeInterface = require("./mode_interface");
-const _throttle = require("lodash.throttle");
+const { throttle: _throttle } = require("lodash");
 const eventMapper = {
   dblclick: 'onDblClick',
   drag: "onDrag",

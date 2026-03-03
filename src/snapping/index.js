@@ -1,4 +1,4 @@
-const throttle = require("lodash.throttle");
+const { throttle, cloneDeep, last } = require("lodash");
 const getNearestPointOnLine = require("@turf/nearest-point-on-line").default;
 const turfDistance = require("@turf/distance").default;
 const {
@@ -7,8 +7,6 @@ const {
   multiLineString: turfMultiLineString,
   featureCollection: turfFeatureCollection,
 } = require("@turf/helpers");
-const cloneDeep = require("lodash.clonedeep");
-const last = require("lodash.last");
 const turfCircle = require("@turf/circle").default;
 const { getCoord, getCoords, getType } = require("@turf/invariant");
 
