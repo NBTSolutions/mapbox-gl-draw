@@ -36,10 +36,14 @@ FreeDraw.onSetup = function () {
 
   this.clearSelectedFeatures();
   doubleClickZoom.disable(this);
-  // disable dragPan
-  setTimeout(() => {
-    if (!this.map || !this.map.dragPan) return;
-    this.map.dragPan.disable();
+
+  // I am so so sorry. Unfortunately "stopExtendedInteractions" in simple select can still sometimes be triggered asyncronously AFTER
+  // we enter freehand mode. The timing of it is erratic, and the cause is unclear.
+  [0, 20, 80, 120].forEach((t) => {
+    setTimeout(() => {
+      if (!this.map || !this.map.dragPan) return;
+      this.map.dragPan.disable();
+    }, t);
   });
 
   this.setActionableState({
