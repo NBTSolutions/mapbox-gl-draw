@@ -25,6 +25,7 @@ const {
   DRAW_POLYGON,
   COINCIDENT_SELECT,
   DRAW_POINT,
+  SPLIT,
 } = require("../constants").modes;
 
 const LINE_MODES = [DIRECT_SELECT, DRAW_LINE_STRING, DRAW_POLYGON];
@@ -117,6 +118,117 @@ class Snapping {
     ctx.api.fetchSourceGeometry = this.fetchSourceGeometry;
     ctx.api.fetchSourceGeometries = this.fetchSourceGeometries;
     ctx.api.getClosestPoint = this.getClosestPoint;
+    ctx.api.snapToSelectedLineForSplitEvent =
+      this.snapToSelectedLineForSplitEvent.bind(this);
+  }
+
+  /** ~max of horizontal/vertical turf distances for `snapDistance` px; used as km cap for split. */
+  _splitScreenSnapRadiusKm(mousePoint) {
+    const { x, y } = mousePoint;
+    const d = this.snapDistance;
+    const c = this.map.unproject([x, y]).toArray();
+    const p0 = turfPoint(c);
+    const hKm = turfDistance(
+      p0,
+      turfPoint(this.map.unproject([x + d, y]).toArray()),
+      { units: "kilometers" }
+    );
+    const vKm = turfDistance(
+      p0,
+      turfPoint(this.map.unproject([x, y + d]).toArray()),
+      { units: "kilometers" }
+    );
+    return Math.max(hKm, vKm, 1e-9) * 10;
+  }
+
+  /**
+   * Split tool only: snap ring / click uses the selected line geometry from the draw store.
+   * Reads the Feature's live coordinates array directly (LineString) or its aggregated
+   * getCoordinates (MultiLineString) to avoid the deep-clone cost of toGeoJSON on every
+   * throttled mousemove. Uses a geographic distance cap derived from snapDistance px so
+   * line-offset paint does not break snaps.
+   */
+  snapToSelectedLineForSplitEvent({ point: mousePoint, lngLat }) {
+    const fail = () => {
+      this.snappedFeature = null;
+      this.snappedGeometry = null;
+      this.clearSnapCoord();
+      this.map.fire("draw.snapped", { snapped: false });
+      return lngLat;
+    };
+
+    const selectedIds = this.store.getSelectedIds();
+    if (!selectedIds || !selectedIds.length) return fail();
+
+    const selectedId = selectedIds[0];
+    const drawFeat = this.store.get(selectedId);
+    if (!drawFeat) return fail();
+
+    const typ = drawFeat.type;
+    if (typ !== "LineString" && typ !== "MultiLineString") return fail();
+
+    // LineString: read the live coords array directly (no clone). MultiLineString: fall back
+    // to getCoordinates() since child-feature coords need aggregation; turf does not mutate.
+    let coords;
+    try {
+      coords = typ === "LineString" ? drawFeat.coordinates : drawFeat.getCoordinates();
+    } catch (err) {
+      return fail();
+    }
+
+    const coordsValid =
+      typ === "LineString"
+        ? Array.isArray(coords) && coords.length >= 2
+        : Array.isArray(coords) &&
+          coords.length > 0 &&
+          coords.every((line) => Array.isArray(line) && line.length >= 2);
+    if (!coordsValid) return fail();
+
+    const clickPt = turfPoint(
+      this.map.unproject([mousePoint.x, mousePoint.y]).toArray()
+    );
+
+    const lineGeom =
+      typ === "LineString" ? turfLineString(coords) : turfMultiLineString(coords);
+
+    const nearest = getNearestPointOnLine(lineGeom, clickPt, {
+      units: "kilometers",
+    });
+
+    if (
+      !nearest ||
+      nearest.properties.dist === undefined ||
+      !Number.isFinite(nearest.properties.dist)
+    ) {
+      return fail();
+    }
+
+    const maxSnapKm = this._splitScreenSnapRadiusKm(mousePoint);
+    if (nearest.properties.dist > maxSnapKm) return fail();
+
+    this.snappedGeometry = { type: typ, coordinates: coords };
+    this.snappedFeature = {
+      type: "Feature",
+      geometry: { type: typ, coordinates: coords },
+      properties: { vetro_id: selectedId },
+    };
+
+    const snapSrc = this.map.getSource("_snap_vertex");
+    if (!snapSrc) {
+      this.snappedFeature = null;
+      this.snappedGeometry = null;
+      return lngLat;
+    }
+    snapSrc.setData(turfFeatureCollection([nearest]));
+    this.map.fire("draw.snapped", { snapped: true });
+
+    const [lng, lat] = getCoord(nearest);
+    return {
+      lng,
+      lat,
+      snapped: true,
+      snappedFeature: this.snappedFeature,
+    };
   }
 
   refreshSnapLayers() {
@@ -378,10 +490,19 @@ class Snapping {
       id.match(/(polygon|linestring)$/)
     );
 
+    const mode = this.store.ctx.api.getMode();
     const selected = this.store.ctx.api.getSelected().features[0];
-    const filter = selected
-      ? ["!=", ["get", "vetro_id"], selected.id]
-      : ["all"];
+    // Compare vetro_id as strings — tiles often use numeric ids while the draw store uses strings.
+    // In split mode, only the line being split should accept a split mark.
+    // Elsewhere, exclude the active feature so vertices snap to other lines, not self.
+    let filter;
+    if (mode === SPLIT && selected) {
+      filter = ["==", ["to-string", ["get", "vetro_id"]], String(selected.id)];
+    } else if (selected) {
+      filter = ["!=", ["to-string", ["get", "vetro_id"]], String(selected.id)];
+    } else {
+      filter = ["all"];
+    }
 
     const bbox = this.getPixelBboxFromPoint({ x, y });
     // get close by linestring and polygons
@@ -453,6 +574,11 @@ class Snapping {
       [DIRECT_SELECT, SIMPLE_SELECT].includes(mode) &&
       this.store?.ctx?.map?.dragPan?._mousePan?._enabled
     ) {
+      return;
+    }
+
+    if (mode === SPLIT) {
+      this.snapToSelectedLineForSplitEvent(e);
       return;
     }
 

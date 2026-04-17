@@ -36,21 +36,25 @@ const clearData = map => {
   map.fire("draw.splitPoints", { splitPointGeometry: null });
 };
 
-SplitLine.onSetup = function onSetup({ featureFilter }) {
+SplitLine.onSetup = function onSetup({ featureFilter, featureId } = {}) {
+  // Select the target feature in the draw store so snapping can restrict to it.
+  // Without this, getSelectedIds() is empty and snapToSelectedLineForSplitEvent bails out.
+  if (featureId != null && this._ctx.store.get(featureId)) {
+    this._ctx.store.setSelected(featureId);
+  }
   this._ctx.snapping.setSnapToSelected(true);
   clearData(this.map);
   const removeSplitVertecies = () => {
     clearData(this.map);
   };
 
-  this._ctx.setGetCursorTypeLogic(({ snapped, overFeatures }) => {
+  // Do not use overFeatures here: it includes any map line under the cursor, which misleads
+  // users into thinking other lines are splittable. Only the snap ring indicates a valid mark.
+  this._ctx.setGetCursorTypeLogic(({ snapped }) => {
     if (snapped) {
       return cursors.ADD;
-    } else if (overFeatures) {
-      return cursors.POINTER;
-    } else {
-      return cursors.GRAB;
     }
+    return cursors.GRAB;
   });
 
   this._ctx.api.removeSplitVertecies = removeSplitVertecies;
@@ -94,25 +98,20 @@ SplitLine.onSetup = function onSetup({ featureFilter }) {
 
   this.setActionableState({});
 
-  return { featureFilter }; // this state will be passed to future events
+  return { featureFilter, featureId }; // this state will be passed to future events
 };
 
 SplitLine.onClick = function onClick(state, e) {
-  const lngLat = this._ctx.snapping.snapCoord(e, state.featureFilter);
-  if (!lngLat.snapped) {
-    // don't fire if we weren't close enough to a feature to snap to it.
+  const lngLat = this._ctx.api.snapToSelectedLineForSplitEvent(e);
+  if (!lngLat || !lngLat.snapped) {
     return;
   }
-  const { lat, lng, snappedFeature } = lngLat;
-  if (snappedFeature.geometry.type !== "LineString") {
-    return;
-  }
+  const { lat, lng } = lngLat;
   appendData(this.map, [lng, lat]);
 };
 
-SplitLine.onMouseMove = function onMouseMove(state, e) {
-  this._ctx.snapping.snapCoord(e, state.featureFilter);
-};
+// Snapping._mouseMoveHandler handles split snap on map mousemove (see SPLIT branch).
+SplitLine.onMouseMove = function onMouseMove() {};
 
 SplitLine.onTap = SplitLine.onClick;
 
