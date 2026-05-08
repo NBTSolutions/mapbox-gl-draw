@@ -26,14 +26,6 @@ const getAdjacentLineData = (lineCoords, pointCoord) => {
   if (pointsEqual(lineCoords[0], pointCoord)) {
     return { index: 0, adjacentPoints: [lineCoords[1]] };
   }
-  for (let i = 1; i < lineCoords.length - 2; i += 1) {
-    if (pointsEqual(lineCoords[i], pointCoord)) {
-      return {
-        index: i,
-        adjacentPoints: [lineCoords[i - 1], lineCoords[i + 1]],
-      };
-    }
-  }
   if (pointsEqual(lineCoords[lineCoords.length - 1], pointCoord)) {
     return {
       index: lineCoords.length - 1,
