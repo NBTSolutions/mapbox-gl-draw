@@ -147,8 +147,12 @@ class Snapping {
    * getCoordinates (MultiLineString) to avoid the deep-clone cost of toGeoJSON on every
    * throttled mousemove. Uses a geographic distance cap derived from snapDistance px so
    * line-offset paint does not break snaps.
+   *
+   * When the cursor is over a rendered point feature (e.g. network points), projects that
+   * point onto the line and uses that location for the indicator and click if within snap distance.
+   * Requires the host app to expose point layers via `snapLayerFilter` / `fetchSnapGeometry`.
    */
-  snapToSelectedLineForSplitEvent({ point: mousePoint, lngLat }) {
+  async snapToSelectedLineForSplitEvent({ point: mousePoint, lngLat }) {
     const fail = () => {
       this.snappedFeature = null;
       this.snappedGeometry = null;
@@ -191,20 +195,64 @@ class Snapping {
     const lineGeom =
       typ === "LineString" ? turfLineString(coords) : turfMultiLineString(coords);
 
-    const nearest = getNearestPointOnLine(lineGeom, clickPt, {
+    const nearestFromMouse = getNearestPointOnLine(lineGeom, clickPt, {
       units: "kilometers",
     });
 
     if (
-      !nearest ||
-      nearest.properties.dist === undefined ||
-      !Number.isFinite(nearest.properties.dist)
+      !nearestFromMouse ||
+      nearestFromMouse.properties.dist === undefined ||
+      !Number.isFinite(nearestFromMouse.properties.dist)
     ) {
       return fail();
     }
 
     const maxSnapKm = this._splitScreenSnapRadiusKm(mousePoint);
-    if (nearest.properties.dist > maxSnapKm) return fail();
+    if (nearestFromMouse.properties.dist > maxSnapKm) return fail();
+
+    let nearest = nearestFromMouse;
+
+    const mapboxPointFeat = this._getClosestMapboxPoint(mousePoint.x, mousePoint.y);
+    if (mapboxPointFeat) {
+      try {
+        const pointGeom = await this.fetchSnapGeometry(mapboxPointFeat);
+        if (pointGeom && pointGeom.type === "Point") {
+          const vertexPt = turfPoint(pointGeom.coordinates);
+          const nearestFromVertex = getNearestPointOnLine(lineGeom, vertexPt, {
+            units: "kilometers",
+          });
+          if (
+            nearestFromVertex &&
+            nearestFromVertex.properties.dist !== undefined &&
+            Number.isFinite(nearestFromVertex.properties.dist) &&
+            nearestFromVertex.properties.dist <= maxSnapKm
+          ) {
+            nearest = nearestFromVertex;
+            this.snappedGeometry = pointGeom;
+            this.snappedFeature = mapboxPointFeat;
+
+            const snapSrc = this.map.getSource("_snap_vertex");
+            if (!snapSrc) {
+              this.snappedFeature = null;
+              this.snappedGeometry = null;
+              return lngLat;
+            }
+            snapSrc.setData(turfFeatureCollection([nearest]));
+            this.map.fire("draw.snapped", { snapped: true });
+
+            const [lng, lat] = getCoord(nearest);
+            return {
+              lng,
+              lat,
+              snapped: true,
+              snappedFeature: this.snappedFeature,
+            };
+          }
+        }
+      } catch (err) {
+        // fall through to mouse-nearest-on-line
+      }
+    }
 
     this.snappedGeometry = { type: typ, coordinates: coords };
     this.snappedFeature = {
@@ -578,7 +626,7 @@ class Snapping {
     }
 
     if (mode === SPLIT) {
-      this.snapToSelectedLineForSplitEvent(e);
+      await this.snapToSelectedLineForSplitEvent(e);
       return;
     }
 

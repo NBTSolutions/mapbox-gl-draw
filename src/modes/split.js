@@ -101,8 +101,8 @@ SplitLine.onSetup = function onSetup({ featureFilter, featureId } = {}) {
   return { featureFilter, featureId }; // this state will be passed to future events
 };
 
-SplitLine.onClick = function onClick(state, e) {
-  const lngLat = this._ctx.api.snapToSelectedLineForSplitEvent(e);
+SplitLine.onClick = async function onClick(state, e) {
+  const lngLat = await this._ctx.api.snapToSelectedLineForSplitEvent(e);
   if (!lngLat || !lngLat.snapped) {
     return;
   }
