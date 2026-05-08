@@ -122,8 +122,8 @@ class Snapping {
       this.snapToSelectedLineForSplitEvent.bind(this);
   }
 
-  /** ~max of horizontal/vertical turf distances for `snapDistance` px; used as km cap for split. */
-  _splitScreenSnapRadiusKm(mousePoint) {
+  /** Horizontal/vertical turf distance for `snapDistance` px (no *10; used for point→line perpendicular proximity). */
+  _splitScreenSnapRadiusBaseKm(mousePoint) {
     const { x, y } = mousePoint;
     const d = this.snapDistance;
     const c = this.map.unproject([x, y]).toArray();
@@ -138,7 +138,12 @@ class Snapping {
       turfPoint(this.map.unproject([x, y + d]).toArray()),
       { units: "kilometers" }
     );
-    return Math.max(hKm, vKm, 1e-9) * 10;
+    return Math.max(hKm, vKm, 1e-9);
+  }
+
+  /** Mouse→line snap cap derived from `snapDistance` px, with *10 buffer for line-offset paint. */
+  _splitScreenSnapRadiusKm(mousePoint) {
+    return this._splitScreenSnapRadiusBaseKm(mousePoint) * 10;
   }
 
   /**
@@ -151,6 +156,8 @@ class Snapping {
    * When the cursor is over a rendered point feature (e.g. network points), projects that
    * point onto the line and uses that location for the indicator and click if within snap distance.
    * Requires the host app to expose point layers via `snapLayerFilter` / `fetchSnapGeometry`.
+   * Hosts should cache `fetchSnapGeometry` / `fetchSourceGeometries` — this runs on throttled
+   * mousemove when a point layer is under the cursor and may call into the host hook frequently.
    */
   async snapToSelectedLineForSplitEvent({ point: mousePoint, lngLat }) {
     const fail = () => {
@@ -210,10 +217,12 @@ class Snapping {
     const maxSnapKm = this._splitScreenSnapRadiusKm(mousePoint);
     if (nearestFromMouse.properties.dist > maxSnapKm) return fail();
 
+    const maxVertexToLineKm = this._splitScreenSnapRadiusBaseKm(mousePoint);
+
     let nearest = nearestFromMouse;
 
     const mapboxPointFeat = this._getClosestMapboxPoint(mousePoint.x, mousePoint.y);
-    if (mapboxPointFeat) {
+    if (mapboxPointFeat && typeof this.fetchSnapGeometry === "function") {
       try {
         const pointGeom = await this.fetchSnapGeometry(mapboxPointFeat);
         if (pointGeom && pointGeom.type === "Point") {
@@ -225,7 +234,7 @@ class Snapping {
             nearestFromVertex &&
             nearestFromVertex.properties.dist !== undefined &&
             Number.isFinite(nearestFromVertex.properties.dist) &&
-            nearestFromVertex.properties.dist <= maxSnapKm
+            nearestFromVertex.properties.dist <= maxVertexToLineKm
           ) {
             nearest = nearestFromVertex;
             this.snappedGeometry = pointGeom;
@@ -233,9 +242,7 @@ class Snapping {
 
             const snapSrc = this.map.getSource("_snap_vertex");
             if (!snapSrc) {
-              this.snappedFeature = null;
-              this.snappedGeometry = null;
-              return lngLat;
+              return fail();
             }
             snapSrc.setData(turfFeatureCollection([nearest]));
             this.map.fire("draw.snapped", { snapped: true });
@@ -263,9 +270,7 @@ class Snapping {
 
     const snapSrc = this.map.getSource("_snap_vertex");
     if (!snapSrc) {
-      this.snappedFeature = null;
-      this.snappedGeometry = null;
-      return lngLat;
+      return fail();
     }
     snapSrc.setData(turfFeatureCollection([nearest]));
     this.map.fire("draw.snapped", { snapped: true });

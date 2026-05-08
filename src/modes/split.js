@@ -102,12 +102,21 @@ SplitLine.onSetup = function onSetup({ featureFilter, featureId } = {}) {
 };
 
 SplitLine.onClick = async function onClick(state, e) {
-  const lngLat = await this._ctx.api.snapToSelectedLineForSplitEvent(e);
-  if (!lngLat || !lngLat.snapped) {
+  if (this._splitClickBusy) {
     return;
   }
-  const { lat, lng } = lngLat;
-  appendData(this.map, [lng, lat]);
+  this._splitClickBusy = true;
+  try {
+    const lngLat = await this._ctx.api.snapToSelectedLineForSplitEvent(e);
+    if (!lngLat || !lngLat.snapped) {
+      return;
+    }
+    const { lat, lng } = lngLat;
+    // snappedFeature on lngLat is available for future use (e.g. attributing the split to a snapped network point).
+    appendData(this.map, [lng, lat]);
+  } finally {
+    this._splitClickBusy = false;
+  }
 };
 
 // Snapping._mouseMoveHandler handles split snap on map mousemove (see SPLIT branch).
