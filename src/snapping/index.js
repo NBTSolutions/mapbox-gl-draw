@@ -15,6 +15,7 @@ const {
   deepFlatten,
   isMultiGeometry,
 } = require("./util");
+const { isSnapPointLayerId } = require("./is_snap_point_layer_id");
 const {
   STATIC,
   FREEHAND,
@@ -526,7 +527,7 @@ class Snapping {
   }
 
   _getClosestMapboxPoint(x, y) {
-    const pointIds = this.snapLayers.filter((id) => id.endsWith("point"));
+    const pointIds = this.snapLayers.filter(isSnapPointLayerId);
 
     const bbox = this.getPixelBboxFromPoint({ x, y });
 
