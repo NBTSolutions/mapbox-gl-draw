@@ -122,8 +122,8 @@ class Snapping {
       this.snapToSelectedLineForSplitEvent.bind(this);
   }
 
-  /** ~max of horizontal/vertical turf distances for `snapDistance` px; used as km cap for split. */
-  _splitScreenSnapRadiusKm(mousePoint) {
+  /** Horizontal/vertical turf distance for `snapDistance` px (no *10; used for point→line perpendicular proximity). */
+  _splitScreenSnapRadiusBaseKm(mousePoint) {
     const { x, y } = mousePoint;
     const d = this.snapDistance;
     const c = this.map.unproject([x, y]).toArray();
@@ -138,7 +138,12 @@ class Snapping {
       turfPoint(this.map.unproject([x, y + d]).toArray()),
       { units: "kilometers" }
     );
-    return Math.max(hKm, vKm, 1e-9) * 10;
+    return Math.max(hKm, vKm, 1e-9);
+  }
+
+  /** Mouse→line snap cap derived from `snapDistance` px, with *10 buffer for line-offset paint. */
+  _splitScreenSnapRadiusKm(mousePoint) {
+    return this._splitScreenSnapRadiusBaseKm(mousePoint) * 10;
   }
 
   /**
@@ -147,8 +152,14 @@ class Snapping {
    * getCoordinates (MultiLineString) to avoid the deep-clone cost of toGeoJSON on every
    * throttled mousemove. Uses a geographic distance cap derived from snapDistance px so
    * line-offset paint does not break snaps.
+   *
+   * When the cursor is over a rendered point feature (e.g. network points), projects that
+   * point onto the line and uses that location for the indicator and click if within snap distance.
+   * Requires the host app to expose point layers via `snapLayerFilter` / `fetchSnapGeometry`.
+   * Hosts should cache `fetchSnapGeometry` / `fetchSourceGeometries` — this runs on throttled
+   * mousemove when a point layer is under the cursor and may call into the host hook frequently.
    */
-  snapToSelectedLineForSplitEvent({ point: mousePoint, lngLat }) {
+  async snapToSelectedLineForSplitEvent({ point: mousePoint, lngLat }) {
     const fail = () => {
       this.snappedFeature = null;
       this.snappedGeometry = null;
@@ -191,20 +202,64 @@ class Snapping {
     const lineGeom =
       typ === "LineString" ? turfLineString(coords) : turfMultiLineString(coords);
 
-    const nearest = getNearestPointOnLine(lineGeom, clickPt, {
+    const nearestFromMouse = getNearestPointOnLine(lineGeom, clickPt, {
       units: "kilometers",
     });
 
     if (
-      !nearest ||
-      nearest.properties.dist === undefined ||
-      !Number.isFinite(nearest.properties.dist)
+      !nearestFromMouse ||
+      nearestFromMouse.properties.dist === undefined ||
+      !Number.isFinite(nearestFromMouse.properties.dist)
     ) {
       return fail();
     }
 
     const maxSnapKm = this._splitScreenSnapRadiusKm(mousePoint);
-    if (nearest.properties.dist > maxSnapKm) return fail();
+    if (nearestFromMouse.properties.dist > maxSnapKm) return fail();
+
+    const maxVertexToLineKm = this._splitScreenSnapRadiusBaseKm(mousePoint);
+
+    let nearest = nearestFromMouse;
+
+    const mapboxPointFeat = this._getClosestMapboxPoint(mousePoint.x, mousePoint.y);
+    if (mapboxPointFeat && typeof this.fetchSnapGeometry === "function") {
+      try {
+        const pointGeom = await this.fetchSnapGeometry(mapboxPointFeat);
+        if (pointGeom && pointGeom.type === "Point") {
+          const vertexPt = turfPoint(pointGeom.coordinates);
+          const nearestFromVertex = getNearestPointOnLine(lineGeom, vertexPt, {
+            units: "kilometers",
+          });
+          if (
+            nearestFromVertex &&
+            nearestFromVertex.properties.dist !== undefined &&
+            Number.isFinite(nearestFromVertex.properties.dist) &&
+            nearestFromVertex.properties.dist <= maxVertexToLineKm
+          ) {
+            nearest = nearestFromVertex;
+            this.snappedGeometry = pointGeom;
+            this.snappedFeature = mapboxPointFeat;
+
+            const snapSrc = this.map.getSource("_snap_vertex");
+            if (!snapSrc) {
+              return fail();
+            }
+            snapSrc.setData(turfFeatureCollection([nearest]));
+            this.map.fire("draw.snapped", { snapped: true });
+
+            const [lng, lat] = getCoord(nearest);
+            return {
+              lng,
+              lat,
+              snapped: true,
+              snappedFeature: this.snappedFeature,
+            };
+          }
+        }
+      } catch (err) {
+        // fall through to mouse-nearest-on-line
+      }
+    }
 
     this.snappedGeometry = { type: typ, coordinates: coords };
     this.snappedFeature = {
@@ -215,9 +270,7 @@ class Snapping {
 
     const snapSrc = this.map.getSource("_snap_vertex");
     if (!snapSrc) {
-      this.snappedFeature = null;
-      this.snappedGeometry = null;
-      return lngLat;
+      return fail();
     }
     snapSrc.setData(turfFeatureCollection([nearest]));
     this.map.fire("draw.snapped", { snapped: true });
@@ -578,7 +631,7 @@ class Snapping {
     }
 
     if (mode === SPLIT) {
-      this.snapToSelectedLineForSplitEvent(e);
+      await this.snapToSelectedLineForSplitEvent(e);
       return;
     }
 
