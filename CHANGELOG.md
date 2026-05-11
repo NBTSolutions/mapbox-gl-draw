@@ -1,5 +1,9 @@
 ## Changelog
 
+## 1.2.37
+
+- Add point to point snapping for split line tool
+
 ## 1.1.2
 
 - update mapbox-gl peer dependency
