@@ -1,6 +1,6 @@
 ## Changelog
 
-## 1.2.36
+## 1.2.37
 
 - Add point to point snapping for split line tool
 
