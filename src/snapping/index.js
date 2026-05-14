@@ -15,6 +15,7 @@ const {
   deepFlatten,
   isMultiGeometry,
 } = require("./util");
+const { isSnapPointLayerId } = require("./is_snap_point_layer_id");
 const {
   STATIC,
   FREEHAND,
@@ -378,8 +379,13 @@ class Snapping {
 
     let snapToFeature;
 
-    // avoid snapping points to points
-    if (this._isLineDraw()) {
+    // Line draws query point tiles first so new vertices snap to existing points.
+    // draw_point does the same, then falls back to line/polygon snapping when there is no point hit.
+    // (simple_select/coincident_select are POINT_MODEs too — we intentionally do not widen to them.)
+    if (
+      this._isLineDraw() ||
+      this.store.ctx.api.getMode() === DRAW_POINT
+    ) {
       snapToFeature = this._getClosestMapboxPoint(x, y);
     }
 
@@ -407,6 +413,9 @@ class Snapping {
   }
 
   async _handlePointSnapEnd() {
+    // Snapped-to map feature is already a Point: coords come from fetchSnapGeometry (tile/renderer
+    // pick → host geometry). We do not call getClosestPoint here — no second DB refinement for
+    // point→point snaps (unlike line/polygon verts, which refine onto the snapped feature).
     if (this._isSnappedToPoint()) return;
 
     const feature = cloneDeep(this.store.ctx.api.getAll().features[0]);
@@ -526,7 +535,7 @@ class Snapping {
   }
 
   _getClosestMapboxPoint(x, y) {
-    const pointIds = this.snapLayers.filter((id) => id.endsWith("point"));
+    const pointIds = this.snapLayers.filter(isSnapPointLayerId);
 
     const bbox = this.getPixelBboxFromPoint({ x, y });
 

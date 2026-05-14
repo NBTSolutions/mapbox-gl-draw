@@ -1,5 +1,11 @@
 ## Changelog
 
+## 1.2.38
+
+- draw_point mode now snaps to existing points rendered in point-capable layers (classified in 1.2.37, including MFTH-prefixed `*-point` layer IDs) before falling back to line/polygon snapping. Orange `_snap_vertex` and click/`snapCoord` use the geometry from `fetchSnapGeometry` after a tile hit.
+
+- When finishing a draw on a snapped **point** feature, `_handlePointSnapEnd` skips `getClosestPoint`: coordinates stay at the tile-resolved/`fetchSnapGeometry` values only — no extra server refinement step (line/polygon snap-end still uses `getClosestPoint`).
+
 ## 1.2.37
 
 - Add point to point snapping for split line tool
