@@ -9,29 +9,24 @@ const cursors = Constants.cursors;
 
 const CoincidentSelect = {};
 const decimalNumber = 100000;
-const roundNumber = (input) =>
-  Math.round(input * decimalNumber) / decimalNumber;
-
-const pointsEqual = (point1, point2) =>
-  roundNumber(point1[0]) === roundNumber(point2[0]) &&
-  roundNumber(point1[1]) === roundNumber(point2[1]);
 
 const pointsApproximatelyEqual = (point1, point2) =>
-  roundNumber(Math.abs(point1[0] - point2[0])) <= 1 / decimalNumber &&
-  roundNumber(Math.abs(point1[1] - point2[1])) <= 1 / decimalNumber;
+  Math.abs(point1[0] - point2[0]) <= 1 / decimalNumber &&
+  Math.abs(point1[1] - point2[1]) <= 1 / decimalNumber;
 
 // OverLoaded function. This is serving both to check if the line is connected to the point
 // and also to return the adjacent point(s) in the line to the connected point
 const getAdjacentLineData = (lineCoords, pointCoord) => {
-  if (pointsEqual(lineCoords[0], pointCoord)) {
+  if (pointsApproximatelyEqual(lineCoords[0], pointCoord)) {
     return { index: 0, adjacentPoints: [lineCoords[1]] };
   }
-  if (pointsEqual(lineCoords[lineCoords.length - 1], pointCoord)) {
+  if (pointsApproximatelyEqual(lineCoords[lineCoords.length - 1], pointCoord)) {
     return {
       index: lineCoords.length - 1,
       adjacentPoints: [lineCoords[lineCoords.length - 2]],
     };
   }
+
   return null;
 };
 
@@ -68,8 +63,8 @@ CoincidentSelect.onSetup = async function (opts) {
 
   this.setSelected(
     state.initiallySelectedFeatureIds.filter(
-      (id) => this.getFeature(id) !== undefined,
-    ),
+      (id) => this.getFeature(id) !== undefined
+    )
   );
 
   const pointFeature = this.getFeature(state.initiallySelectedFeatureIds[0]);
@@ -84,7 +79,7 @@ CoincidentSelect.onSetup = async function (opts) {
   ];
 
   const ptSrcGeom = await this._ctx.options.fetchSourceGeometry(
-    state.initiallySelectedFeatureIds[0],
+    state.initiallySelectedFeatureIds[0]
   );
   if (!ptSrcGeom?.coordinates?.length) {
     return;
@@ -95,8 +90,9 @@ CoincidentSelect.onSetup = async function (opts) {
   const features = this._ctx.map.queryRenderedFeatures(bbox);
   const filteredFeatures = await this._ctx.options.filterCoincidentCandidates(
     pointFeature.id,
-    features,
+    features
   );
+
   for (const f of filteredFeatures) {
     if (
       opts.userEditablePlanIds.includes(f.properties.plan_id) &&
@@ -105,7 +101,7 @@ CoincidentSelect.onSetup = async function (opts) {
       !f.layer.id.includes("_snap")
     ) {
       const lineSrcGeom = await this._ctx.options.fetchSourceGeometry(
-        f.properties.vetro_id,
+        f.properties.vetro_id
       );
       if (!lineSrcGeom?.coordinates?.length) {
         continue;
@@ -114,7 +110,7 @@ CoincidentSelect.onSetup = async function (opts) {
       if (
         !isPointLinestringEndpoint(
           lineSrcGeom.coordinates,
-          ptSrcGeom.coordinates,
+          ptSrcGeom.coordinates
         )
       ) {
         continue;
@@ -122,7 +118,7 @@ CoincidentSelect.onSetup = async function (opts) {
 
       const adjacentLineData = getAdjacentLineData(
         lineSrcGeom.coordinates,
-        ptSrcGeom.coordinates,
+        ptSrcGeom.coordinates
       );
       if (adjacentLineData) {
         const { index, adjacentPoints } = adjacentLineData;
@@ -162,7 +158,7 @@ CoincidentSelect.fireUpdate = function (coincidentData) {
           coordinates: newLineCoords,
         },
       };
-    },
+    }
   );
   this.map.fire(Constants.events.UPDATE, {
     action: Constants.updateActions.MOVE,
@@ -175,7 +171,7 @@ CoincidentSelect.fireActionable = function () {
   const selectedFeatures = this.getSelected();
 
   const multiFeatures = selectedFeatures.filter((feature) =>
-    this.isInstanceOf("MultiFeature", feature),
+    this.isInstanceOf("MultiFeature", feature)
   );
 
   let combineFeatures = false;
@@ -357,7 +353,7 @@ CoincidentSelect.startBoxSelect = function (state, e) {
   // Enable box select
   state.boxSelectStartLocation = mouseEventPoint(
     e.originalEvent,
-    this.map.getContainer(),
+    this.map.getContainer()
   );
   state.canBoxSelect = true;
 };
@@ -430,7 +426,7 @@ CoincidentSelect.onMouseUp = function (state, e) {
     ];
     const featuresInBox = this.featuresAt(null, bbox, "click");
     const idsToSelect = this.getUniqueIds(featuresInBox).filter(
-      (id) => !this.isSelected(id),
+      (id) => !this.isSelected(id)
     );
 
     if (idsToSelect.length) {
