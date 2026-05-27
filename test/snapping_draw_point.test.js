@@ -7,7 +7,7 @@ const { DRAW_POINT, SIMPLE_SELECT, COINCIDENT_SELECT } = Constants.modes;
 // getPixelBboxFromPoint reads devicePixelRatio; mock-browser omits it.
 global.window.devicePixelRatio = 1;
 
-function createMockCtx(mode, selectedFeatures = []) {
+function createMockCtx(mode, selectedFeatures = [], allFeatures = []) {
   const pointFeatureHit = {
     type: 'Feature',
     geometry: { type: 'Point', coordinates: [-122.4, 37.81] },
@@ -56,8 +56,11 @@ function createMockCtx(mode, selectedFeatures = []) {
       features: selectedFeatures,
     }),
     getSelectedPoints: () => ({ features: [] }),
-    getAll: () => ({ features: [] }),
-    set: () => {},
+    getAll: () => ({ features: allFeatures }),
+    set: (fc) => {
+      api.lastSet = fc;
+    },
+    lastSet: null,
   };
 
   const ctx = {
@@ -170,6 +173,64 @@ const selectedPointFeature = {
       t.error(err);
       t.end();
     });
+  });
+});
+
+test('_handlePointSnapEnd: simple_select uses selected Point when store has multiple features', (t) => {
+  const lineInStore = {
+    type: 'Feature',
+    properties: { id: 'line-1' },
+    geometry: {
+      type: 'LineString',
+      coordinates: [
+        [0, 0],
+        [1, 1],
+      ],
+    },
+  };
+  const selectedPoint = {
+    type: 'Feature',
+    properties: { id: 'point-selected' },
+    geometry: { type: 'Point', coordinates: [-122.6, 37.83] },
+  };
+
+  const { ctx } = createMockCtx(
+    SIMPLE_SELECT,
+    [selectedPoint],
+    [lineInStore, selectedPoint]
+  );
+
+  ctx.options.getClosestPoint = async () => ({
+    type: 'Point',
+    coordinates: [-99, 40],
+  });
+
+  const snapping = new Snapping(ctx);
+  snapping.snappedFeature = {
+    type: 'Feature',
+    geometry: { type: 'LineString', coordinates: [[0, 0], [1, 1]] },
+    properties: { vetro_id: 'line-vetro-id' },
+  };
+
+  snapping._handlePointSnapEnd().then(() => {
+    t.ok(ctx.api.lastSet, 'set was called');
+    t.equal(
+      ctx.api.lastSet.features[0].properties.id,
+      'point-selected',
+      'updates the selected Point, not getAll().features[0]'
+    );
+    t.deepEqual(
+      ctx.api.lastSet.features[0].geometry.coordinates,
+      [-99, 40],
+      'applies getClosestPoint result to selected Point'
+    );
+
+    snapping.disableSnapping();
+    t.end();
+  }).catch((err) => {
+    snapping.disableSnapping();
+    t.error(err);
+    t.end();
   });
 });
 

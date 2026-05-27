@@ -420,7 +420,7 @@ class Snapping {
     // DRAW_POINT transitioning out). Without these guards, getCoords(undefined) throws
     // "Cannot read properties of undefined (reading 'type')". Mirrors the guards already
     // present in _handleLineStringAndPolygonSnapEnd.
-    const drawFeature = this.store.ctx.api.getAll().features[0];
+    const drawFeature = this._getPointDrawFeatureForSnapEnd();
     if (!drawFeature) return;
     if (getType(drawFeature) !== "Point") return;
 
@@ -637,6 +637,18 @@ class Snapping {
     }
 
     return false;
+  }
+
+  _getPointDrawFeatureForSnapEnd() {
+    const mode = this.store.ctx.api.getMode();
+
+    if (mode === SIMPLE_SELECT || mode === COINCIDENT_SELECT) {
+      const { features } = this.store.ctx.api.getSelected();
+
+      return features.length === 1 ? features[0] : undefined;
+    }
+
+    return this.store.ctx.api.getAll().features[0];
   }
 
   _isPointDraw() {
