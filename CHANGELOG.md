@@ -1,5 +1,9 @@
 ## Changelog
 
+## Unreleased
+
+- `simple_select` and `coincident_select` now query point-capable snap layers when dragging a single Point feature, matching `draw_point` point-to-point snapping behavior.
+
 ## 1.2.38
 
 - draw_point mode now snaps to existing points rendered in point-capable layers (classified in 1.2.37, including MFTH-prefixed `*-point` layer IDs) before falling back to line/polygon snapping. Orange `_snap_vertex` and click/`snapCoord` use the geometry from `fetchSnapGeometry` after a tile hit.
