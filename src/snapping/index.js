@@ -53,6 +53,7 @@ class Snapping {
     this.snapLayerFilter = ctx.options.snapLayerFilter;
     this.fetchSnapGeometry = ctx.options.fetchSnapGeometry;
     this.fetchSnapGeometries = ctx.options.fetchSnapGeometries;
+    this.getEphemeralSnapCandidates = ctx.options.getEphemeralSnapCandidates;
     this._updateSourceGeomCache = ctx.options._updateSourceGeomCache;
     this._setGeomCacheIfNotExists = ctx.options._setGeomCacheIfNotExists;
     this.fetchSourceGeometry = ctx.options.fetchSourceGeometry;
@@ -389,6 +390,10 @@ class Snapping {
       snapToFeature = await this._getClosestLineStringOrPolygon(x, y);
     }
 
+    if (!snapToFeature && typeof this.getEphemeralSnapCandidates === "function") {
+      snapToFeature = await this.getEphemeralSnapCandidates(x, y);
+    }
+
     if (!snapToFeature) {
       this._mouseoutHandler();
       return;
@@ -449,6 +454,8 @@ class Snapping {
     const [lng, lat] = updatedCoord;
 
     const { vetro_id: vetroId } = this.snappedFeature.properties;
+
+    if (!vetroId) return;
 
     // get closest point on snapped feature from db, bypassing issues w/ turf/nearest-point-on-line
     const closestPoint = await this.getClosestPoint(vetroId, lng, lat);
