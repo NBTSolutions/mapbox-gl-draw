@@ -2,7 +2,12 @@ import test from 'tape';
 import Snapping from '../src/snapping/index';
 import Constants from '../src/constants';
 
-const { DRAW_POINT, SIMPLE_SELECT, COINCIDENT_SELECT } = Constants.modes;
+const {
+  DRAW_POINT,
+  DRAW_LINE_STRING,
+  SIMPLE_SELECT,
+  COINCIDENT_SELECT,
+} = Constants.modes;
 
 // getPixelBboxFromPoint reads devicePixelRatio; mock-browser omits it.
 global.window.devicePixelRatio = 1;
@@ -252,6 +257,108 @@ test('_setSnappedFeature: simple_select skips point pass when multiple features 
       undefined,
       'does not query point layers for multi-select drag'
     );
+
+    snapping.disableSnapping();
+    t.end();
+  }).catch((err) => {
+    snapping.disableSnapping();
+    t.error(err);
+    t.end();
+  });
+});
+
+test('_setSnappedFeature: uses an ephemeral candidate after rendered feature passes miss', (t) => {
+  const { ctx } = createMockCtx(DRAW_LINE_STRING);
+  const ephemeralFeature = {
+    type: 'Feature',
+    geometry: { type: 'LineString', coordinates: [[0, 0], [1, 1]] },
+    properties: { network_copilot_draw: true },
+  };
+  let candidateArgs;
+
+  ctx.options.getEphemeralSnapCandidates = async (x, y) => {
+    candidateArgs = [x, y];
+    return ephemeralFeature;
+  };
+  ctx.options.fetchSnapGeometry = async (feature) => feature.geometry;
+
+  const snapping = new Snapping(ctx);
+  snapping.snapLayers = [];
+
+  snapping._setSnappedFeature({ point: { x: 100, y: 200 } }).then(() => {
+    t.deepEqual(candidateArgs, [100, 200], 'queries the host fallback at the cursor');
+    t.equal(snapping.snappedFeature, ephemeralFeature, 'uses the ephemeral feature');
+    t.equal(
+      snapping.snappedGeometry,
+      ephemeralFeature.geometry,
+      'loads geometry through fetchSnapGeometry'
+    );
+
+    snapping.disableSnapping();
+    t.end();
+  }).catch((err) => {
+    snapping.disableSnapping();
+    t.error(err);
+    t.end();
+  });
+});
+
+test('_setSnappedFeature: does not query ephemeral candidates after a rendered point hit', (t) => {
+  const { ctx, pointFeatureHit } = createMockCtx(DRAW_POINT);
+  let ephemeralQueryCount = 0;
+
+  ctx.options.getEphemeralSnapCandidates = async () => {
+    ephemeralQueryCount += 1;
+    return null;
+  };
+
+  const snapping = new Snapping(ctx);
+  snapping.snapLayers = ['circle-network-9-point'];
+
+  snapping._setSnappedFeature({ point: { x: 100, y: 200 } }).then(() => {
+    t.equal(ephemeralQueryCount, 0, 'preserves rendered feature precedence');
+    t.equal(snapping.snappedFeature, pointFeatureHit, 'keeps the rendered point target');
+
+    snapping.disableSnapping();
+    t.end();
+  }).catch((err) => {
+    snapping.disableSnapping();
+    t.error(err);
+    t.end();
+  });
+});
+
+test('_handleLineStringAndPolygonSnapEnd: skips DB refinement without a vetro_id', (t) => {
+  const drawnLine = {
+    type: 'Feature',
+    properties: {},
+    geometry: { type: 'LineString', coordinates: [[0, 0], [1, 1]] },
+  };
+  const { ctx } = createMockCtx(DRAW_LINE_STRING, [], [drawnLine]);
+  let closestPointCallCount = 0;
+
+  ctx.api.getSelectedPoints = () => ({
+    features: [{
+      type: 'Feature',
+      properties: {},
+      geometry: { type: 'Point', coordinates: [1, 1] },
+    }],
+  });
+  ctx.options.getClosestPoint = async () => {
+    closestPointCallCount += 1;
+    return { type: 'Point', coordinates: [1, 1] };
+  };
+
+  const snapping = new Snapping(ctx);
+  snapping.snappedFeature = {
+    type: 'Feature',
+    geometry: { type: 'LineString', coordinates: [[0, 0], [1, 1]] },
+    properties: { network_copilot_draw: true },
+  };
+
+  snapping._handleLineStringAndPolygonSnapEnd().then(() => {
+    t.equal(closestPointCallCount, 0, 'does not call getClosestPoint without a vetro_id');
+    t.equal(ctx.api.lastSet, null, 'does not rewrite the drawn feature');
 
     snapping.disableSnapping();
     t.end();

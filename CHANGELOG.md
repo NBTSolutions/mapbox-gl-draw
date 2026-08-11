@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Hosts can provide `getEphemeralSnapCandidates` to snap to draw-store features when rendered point and line/polygon queries miss. Line and polygon snap-end now skip database refinement for targets without a `vetro_id`.
+
 - `simple_select` and `coincident_select` now query point-capable snap layers when dragging a single Point feature, matching `draw_point` point-to-point snapping behavior.
 
 ## 1.2.38
